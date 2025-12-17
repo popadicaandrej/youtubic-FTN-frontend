@@ -1,33 +1,24 @@
-### Node / Frontend ###
-node_modules/
-dist/
-build/
-coverage/
-
-# Common framework outputs
-.vite/
-.next/
-out/
-.nuxt/
-.svelte-kit/
-.angular/
-
-### Logs ###
+# Logs
+logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
-### Environment files (secrets) ###
-.env
-.env.local
-.env.*.local
+node_modules
+dist
+dist-ssr
+*.local
 
-### IDEs ###
-.idea/
-.vscode/
-
-### OS junk ###
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
