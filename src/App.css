@@ -46,3 +46,49 @@
 .password-red {
   color: darkred;
 }
+
+.profile {
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+}
+
+.profile h2 {
+  margin-bottom: 10px;
+}
+
+.profile p {
+  margin: 5px 0;
+}
+
+.auth p {
+  margin: 0;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.auth p[style*="color: red"] {
+  background-color: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+}
+
+.auth input {
+  padding: 10px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #2a2a2a;
+  color: white;
+}
+
+.auth input:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.auth button {
+  margin-top: 10px;
+}
+
+.topbar button {
+  margin-left: 10px;
+}
