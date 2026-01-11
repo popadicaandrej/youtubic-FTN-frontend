@@ -1,19 +1,33 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import Feed from './Feed'
+import Login from './Login'
+import Register from './Register'
+import ProfileView from './ProfileView'
 
 export default function App() {
-  const [msg, setMsg] = useState('Loading...')
+    const [page, setPage] = useState('feed')
+    const [profileId, setProfileId] = useState(null)
 
-  useEffect(() => {
-    fetch('/api/health')
-      .then((r) => r.text())
-      .then(setMsg)
-      .catch(() => setMsg('ERROR'))
-  }, [])
+    return (
+        <>
+            <header className="topbar">
+                <h2 className="logo">Youtubic</h2>
+                <div>
+                    <button onClick={() => setPage('login')}>Prijava</button>
+                    <button onClick={() => setPage('register')}>Registracija</button>
+                </div>
+            </header>
 
-  return (
-    <div style={{ padding: 24 }}>
-      <h1>Frontend ↔ Backend test</h1>
-      <p>/api/health says: <b>{msg}</b></p>
-    </div>
-  )
+            {page === 'feed' && (
+                <Feed onOpenProfile={(id) => {
+                    setProfileId(id)
+                    setPage('profile')
+                }} />
+            )}
+
+            {page === 'login' && <Login />}
+            {page === 'register' && <Register />}
+            {page === 'profile' && <ProfileView userId={profileId} />}
+        </>
+    )
 }
