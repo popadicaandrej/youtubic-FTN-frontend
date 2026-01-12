@@ -11,7 +11,7 @@ export default function Feed({ onOpenProfile }) {
             try {
                 setLoading(true)
                 setError(null)
-                const res = await apiFetch('/api/posts')
+                const res = await apiFetch('/api/posts/public')
                 
                 if (!res.ok) {
                     throw new Error('Error loading posts.')
@@ -72,18 +72,28 @@ export default function Feed({ onOpenProfile }) {
                         <img src="https://via.placeholder.com/40" alt="Avatar" />
                         <span
                             className="username"
-                            onClick={() => onOpenProfile(p.authorId)}
+                            onClick={() => onOpenProfile(p.userId)}
                         >
-                            {p.authorUsername}
+                            {p.username}
                         </span>
                     </div>
 
                     <h3>{p.title}</h3>
+                    {p.id && (
+                        <video 
+                            src={`/api/files/videos/${p.id}`}
+                            controls
+                            poster={`/api/files/thumbnails/${p.id}`}
+                            style={{ width: '100%', maxWidth: '600px', height: 'auto', display: 'block', margin: '10px 0' }}
+                        >
+                            Your browser does not support the video tag.
+                        </video>
+                    )}
                     <p>{p.content}</p>
 
                     <div className="actions">
-                        <button onClick={needLogin}>👍 {p.likes || 0}</button>
-                        <button onClick={needLogin}>💬 {p.comments || 0}</button>
+                        <button onClick={needLogin}>👍 {p.likesCount || 0}</button>
+                        <button onClick={needLogin}>💬 {p.commentsCount || 0}</button>
                     </div>
                 </div>
             ))}
