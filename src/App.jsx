@@ -4,11 +4,13 @@ import Login from './Login'
 import Register from './Register'
 import ProfileView from './ProfileView'
 import CreatePost from './CreatePost'
+import VideoDetail from './VideoDetail'
 import { useAuth } from './AuthContext'
 
 export default function App() {
     const [page, setPage] = useState('feed')
     const [profileId, setProfileId] = useState(null)
+    const [videoId, setVideoId] = useState(null)
     const { isAuthenticated, logout } = useAuth()
 
     return (
@@ -34,10 +36,16 @@ export default function App() {
             </header>
 
             {page === 'feed' && (
-                <Feed onOpenProfile={(id) => {
-                    setProfileId(id)
-                    setPage('profile')
-                }} />
+                <Feed 
+                    onOpenProfile={(id) => {
+                        setProfileId(id)
+                        setPage('profile')
+                    }}
+                    onOpenVideo={(id) => {
+                        setVideoId(id)
+                        setPage('video-detail')
+                    }}
+                />
             )}
 
             {page === 'login' && <Login onSuccess={() => setPage('feed')} />}
@@ -51,6 +59,13 @@ export default function App() {
 
             {page === 'create-post' && isAuthenticated() && (
                 <CreatePost onSuccess={() => setPage('feed')} />
+            )}
+
+            {page === 'video-detail' && (
+                <VideoDetail 
+                    videoId={videoId} 
+                    onBack={() => setPage('feed')} 
+                />
             )}
         </>
     )

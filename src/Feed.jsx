@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from './api'
+import { useAuth } from './AuthContext'
 
-export default function Feed({ onOpenProfile }) {
+export default function Feed({ onOpenProfile, onOpenVideo }) {
     const [posts, setPosts] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
-    const [playingVideo, setPlayingVideo] = useState(null)
-    const [videoAspectRatios, setVideoAspectRatios] = useState({})
+    const { isAuthenticated } = useAuth()
 
     useEffect(() => {
         async function fetchPosts() {
             try {
                 setLoading(true)
                 setError(null)
-                const res = await apiFetch('/api/posts/public')
+                const endpoint = isAuthenticated() ? '/api/posts' : '/api/posts/public'
+                const res = await apiFetch(endpoint)
                 
                 if (!res.ok) {
                     throw new Error('Error loading posts.')
@@ -21,9 +22,9 @@ export default function Feed({ onOpenProfile }) {
                 
                 const data = await res.json()
                 const sortedPosts = Array.isArray(data) 
-                    ? data.sort((a, b) => {
-                        const dateA = new Date(a.createdAt || a.createdDate || a.id || 0)
-                        const dateB = new Date(b.createdAt || b.createdDate || b.id || 0)
+                    ? [...data].sort((a, b) => {
+                        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+                        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
                         return dateB - dateA
                     })
                     : []
@@ -36,7 +37,7 @@ export default function Feed({ onOpenProfile }) {
         }
 
         fetchPosts()
-    }, [])
+    }, [isAuthenticated])
 
     function needLogin() {
         alert('You must login to use this option.')
@@ -98,66 +99,34 @@ export default function Feed({ onOpenProfile }) {
                                     overflow: 'hidden'
                                 }}
                                 onClick={() => {
-                                    if (playingVideo === p.id) {
-                                        setPlayingVideo(null)
-                                    } else {
-                                        setPlayingVideo(p.id)
+                                    if (onOpenVideo) {
+                                        onOpenVideo(p.id)
                                     }
                                 }}
                             >
-                                {playingVideo === p.id ? (
-                                    <video 
-                                        src={`/api/files/videos/${p.id}`}
-                                        controls
-                                        autoPlay
-                                        onLoadedMetadata={(e) => {
-                                            const video = e.target
-                                            const aspectRatio = video.videoWidth / video.videoHeight
-                                            setVideoAspectRatios({ ...videoAspectRatios, [p.id]: aspectRatio })
-                                        }}
-                                        style={{ 
-                                            maxWidth: '100%', 
-                                            maxHeight: '400px',
-                                            width: 'auto',
-                                            height: 'auto',
-                                            display: 'block', 
-                                            borderRadius: '6px'
-                                        }}
-                                    >
-                                        Your browser does not support the video tag.
-                                    </video>
-                                ) : (
-                                    <>
-                                        <img 
-                                            src={`/api/files/thumbnails/${p.id}`}
-                                            alt={p.title}
-                                            style={{ 
-                                                maxWidth: '100%', 
-                                                maxHeight: '400px',
-                                                width: 'auto',
-                                                height: 'auto',
-                                                display: 'block', 
-                                                borderRadius: '6px',
-                                                objectFit: 'contain'
-                                            }}
-                                            onLoad={(e) => {
-                                                const img = e.target
-                                                const aspectRatio = img.naturalWidth / img.naturalHeight
-                                                setVideoAspectRatios({ ...videoAspectRatios, [p.id]: aspectRatio })
-                                            }}
-                                        />
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '50%',
-                                            left: '50%',
-                                            transform: 'translate(-50%, -50%)',
-                                            fontSize: '36px',
-                                            color: 'white',
-                                            textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                                            pointerEvents: 'none'
-                                        }}>▶</div>
-                                    </>
-                                )}
+                                <img 
+                                    src={`/api/files/thumbnails/${p.id}`}
+                                    alt={p.title}
+                                    style={{ 
+                                        maxWidth: '100%', 
+                                        maxHeight: '400px',
+                                        width: 'auto',
+                                        height: 'auto',
+                                        display: 'block', 
+                                        borderRadius: '6px',
+                                        objectFit: 'contain'
+                                    }}
+                                />
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    fontSize: '36px',
+                                    color: 'white',
+                                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                                    pointerEvents: 'none'
+                                }}>▶</div>
                             </div>
                         )}
                         <h3>{p.title}</h3>
