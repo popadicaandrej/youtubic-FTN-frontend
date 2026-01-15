@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { apiFetch } from './api'
 import { useAuth } from './AuthContext'
 
@@ -7,7 +7,13 @@ export default function VideoDetail({ videoId, onBack }) {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [liking, setLiking] = useState(false)
-    const [comments, setComments] = useState([])
+    const [comments, setComments] = useState({
+        content: [],
+        totalElements: 0,
+        totalPages: 0,
+        currentPage: 0,
+        pageSize: 20
+    })
     const [loadingComments, setLoadingComments] = useState(false)
     const [commentsError, setCommentsError] = useState(null)
     const [commentText, setCommentText] = useState('')
@@ -15,6 +21,7 @@ export default function VideoDetail({ videoId, onBack }) {
     const [likeError, setLikeError] = useState(null)
     const [commentError, setCommentError] = useState(null)
     const { isAuthenticated } = useAuth()
+    const commentsSectionRef = useRef(null)
 
     useEffect(() => {
         if (!videoId) {
@@ -56,31 +63,98 @@ export default function VideoDetail({ videoId, onBack }) {
         fetchPost()
     }, [videoId])
 
-    async function fetchComments() {
+    async function fetchComments(page = 0, size = 20, forceRefresh = false) {
         if (!post || !post.id) {
+            return
+        }
+
+        if (loadingComments && !forceRefresh) {
+            return
+        }
+
+        if (page < 0) {
+            page = 0
+        }
+
+        if (size <= 0) {
+            size = 20
+        }
+
+        if (!forceRefresh && comments.currentPage === page && comments.pageSize === size && comments.content.length > 0 && !commentsError) {
             return
         }
 
         try {
             setLoadingComments(true)
             setCommentsError(null)
-            const res = await apiFetch(`/api/posts/${post.id}/comments`)
+            const res = await apiFetch(`/api/posts/${post.id}/comments?page=${page}&size=${size}`)
             
             if (!res.ok) {
                 if (res.status === 404) {
                     throw new Error('Post not found.')
+                } else if (res.status === 400) {
+                    const errorData = await res.json().catch(() => ({}))
+                    throw new Error(errorData.error || 'Invalid request. Please try again.')
+                } else if (res.status === 401) {
+                    throw new Error('You must be logged in to view comments.')
+                } else if (res.status === 403) {
+                    throw new Error('You do not have permission to view comments.')
+                } else if (res.status === 429) {
+                    throw new Error('Too many requests. Please try again later.')
                 } else if (res.status >= 500) {
                     throw new Error('Server error. Please try again later.')
                 } else {
-                    throw new Error('Error loading comments.')
+                    const errorData = await res.json().catch(() => ({}))
+                    throw new Error(errorData.error || 'Error loading comments.')
                 }
             }
             
-            const data = await res.json()
-            setComments(Array.isArray(data) ? data : [])
+            let data
+            try {
+                data = await res.json()
+            } catch (parseError) {
+                throw new Error('Invalid response from server. Please try again.')
+            }
+            
+            if (data.content && Array.isArray(data.content)) {
+                setComments({
+                    content: data.content,
+                    totalElements: data.totalElements || 0,
+                    totalPages: data.totalPages || 0,
+                    currentPage: data.currentPage || 0,
+                    pageSize: data.pageSize || 20
+                })
+                if (commentsSectionRef.current) {
+                    commentsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+            } else {
+                if (page === 0) {
+                    setComments({
+                        content: [],
+                        totalElements: 0,
+                        totalPages: 0,
+                        currentPage: 0,
+                        pageSize: 20
+                    })
+                } else {
+                    throw new Error('Invalid response format from server.')
+                }
+            }
         } catch (err) {
-            setCommentsError(err.message || 'Error loading comments.')
-            setComments([])
+            if (err.name === 'TypeError' && err.message.includes('fetch')) {
+                setCommentsError('Network error. Please check your connection and try again.')
+            } else {
+                setCommentsError(err.message || 'Error loading comments.')
+            }
+            if (page === 0) {
+                setComments({
+                    content: [],
+                    totalElements: 0,
+                    totalPages: 0,
+                    currentPage: 0,
+                    pageSize: 20
+                })
+            }
         } finally {
             setLoadingComments(false)
         }
@@ -91,8 +165,19 @@ export default function VideoDetail({ videoId, onBack }) {
             return
         }
 
-        fetchComments()
-    }, [post])
+        if (loadingComments) {
+            return
+        }
+
+        setComments({
+            content: [],
+            totalElements: 0,
+            totalPages: 0,
+            currentPage: 0,
+            pageSize: 20
+        })
+        fetchComments(0, 20)
+    }, [post?.id])
 
     async function handleLike() {
         if (!isAuthenticated()) {
@@ -159,20 +244,42 @@ export default function VideoDetail({ videoId, onBack }) {
             return
         }
 
-        if (!post || !post.id || !commentText.trim() || submittingComment) {
+        if (!post || !post.id) {
+            setCommentError('Post not found.')
+            return
+        }
+
+        if (submittingComment) {
+            return
+        }
+
+        const trimmedText = commentText.trim()
+        
+        if (!trimmedText) {
+            setCommentError('Comment cannot be empty.')
+            return
+        }
+
+        if (trimmedText.length > 1000) {
+            setCommentError('Comment cannot exceed 1000 characters.')
             return
         }
 
         try {
             setSubmittingComment(true)
             setCommentError(null)
-            const res = await apiFetch(`/api/posts/${post.id}/comments`, {
+            const postId = post.id
+            if (!postId) {
+                setCommentError('Post ID is missing.')
+                return
+            }
+            const res = await apiFetch(`/api/posts/${postId}/comments`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    text: commentText.trim()
+                    text: trimmedText
                 })
             })
 
@@ -182,7 +289,18 @@ export default function VideoDetail({ videoId, onBack }) {
                     return
                 } else if (res.status === 400) {
                     const errorData = await res.json().catch(() => ({}))
-                    setCommentError(errorData.error || 'Invalid comment. Please check your input.')
+                    let errorMessage = errorData.error
+                    if (!errorMessage && errorData.text) {
+                        errorMessage = errorData.text
+                    }
+                    if (!errorMessage && errorData.postId) {
+                        errorMessage = errorData.postId
+                    }
+                    if (!errorMessage) {
+                        const firstError = Object.values(errorData)[0]
+                        errorMessage = typeof firstError === 'string' ? firstError : 'Invalid comment. Please check your input.'
+                    }
+                    setCommentError(errorMessage || 'Invalid comment. Please check your input.')
                     return
                 } else if (res.status === 404) {
                     setCommentError('Post not found.')
@@ -200,12 +318,15 @@ export default function VideoDetail({ videoId, onBack }) {
             const newComment = await res.json()
             setCommentText('')
             
-            setComments(prevComments => [...prevComments, newComment])
-            
             setPost(prevPost => ({
                 ...prevPost,
                 commentsCount: (prevPost.commentsCount || 0) + 1
             }))
+            
+            const pageSize = comments.pageSize || 20
+            await fetchComments(0, pageSize, true)
+            
+            setSubmittingComment(false)
         } catch (err) {
             setCommentError(err.message || 'Error posting comment.')
         } finally {
@@ -337,7 +458,7 @@ export default function VideoDetail({ videoId, onBack }) {
                 </div>
             )}
 
-            <div className="comments-section">
+            <div className="comments-section" ref={commentsSectionRef}>
                 <h3>Comments ({post.commentsCount || 0})</h3>
                 
                 {isAuthenticated() ? (
@@ -349,10 +470,13 @@ export default function VideoDetail({ videoId, onBack }) {
                             rows="3"
                             maxLength={1000}
                         />
+                        <div className="comment-char-count">
+                            {commentText.length}/1000 characters
+                        </div>
                         <div>
                             <button
                                 type="submit"
-                                disabled={submittingComment || !commentText.trim()}
+                                disabled={submittingComment || !commentText.trim() || commentText.trim().length > 1000}
                             >
                                 {submittingComment ? 'Posting...' : 'Post Comment'}
                             </button>
@@ -369,31 +493,79 @@ export default function VideoDetail({ videoId, onBack }) {
                     </p>
                 )}
 
-                {loadingComments ? (
-                    <p>Loading comments...</p>
-                ) : commentsError ? (
+                {commentsError ? (
                     <p className="error-message">{commentsError}</p>
-                ) : comments.length === 0 ? (
+                ) : comments.content.length === 0 && !loadingComments ? (
                     <p className="info-message">No comments yet.</p>
                 ) : (
-                    <div className="comment-list">
-                        {comments.map(comment => (
-                            <div key={comment.id} className="comment-item">
-                                <div className="comment-header">
-                                    <span className="comment-author">{comment.username || 'Unknown'}</span>
-                                    {comment.createdAt && (
-                                        <span className="comment-date">
-                                            {new Date(comment.createdAt).toLocaleString()}
-                                        </span>
-                                    )}
-                                </div>
-                                <p className="comment-text">{comment.text}</p>
+                    <>
+                        {loadingComments && comments.content.length === 0 && (
+                            <p>Loading comments...</p>
+                        )}
+                        {comments.content.length > 0 && (
+                            <div className="comment-list">
+                                {loadingComments && comments.content.length > 0 && (
+                                    <p className="loading-indicator">Loading...</p>
+                                )}
+                                {comments.content.map(comment => (
+                                    <div key={comment.id} className="comment-item">
+                                        <div className="comment-header">
+                                            <span className="comment-author">{comment.username || 'Unknown'}</span>
+                                            {comment.createdAt && (
+                                                <span className="comment-date">
+                                                    {new Date(comment.createdAt).toLocaleString()}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="comment-text">{comment.text}</p>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        )}
+                        {comments.content.length > 0 && comments.totalElements > 0 && (
+                            <div className="comments-pagination-info">
+                                {(() => {
+                                    const start = Math.max(1, comments.currentPage * comments.pageSize + 1)
+                                    const end = Math.min(comments.currentPage * comments.pageSize + comments.content.length, comments.totalElements)
+                                    if (start > end) {
+                                        return `Showing 0 of ${comments.totalElements} ${comments.totalElements === 1 ? 'comment' : 'comments'}`
+                                    }
+                                    return `Showing ${start}-${end} of ${comments.totalElements} ${comments.totalElements === 1 ? 'comment' : 'comments'}`
+                                })()}
+                            </div>
+                        )}
+                        {comments.totalPages > 1 && comments.totalElements > 0 && (
+                            <div className="comments-pagination">
+                                <button
+                                    onClick={() => {
+                                        const prevPage = Math.max(0, comments.currentPage - 1)
+                                        fetchComments(prevPage, comments.pageSize)
+                                    }}
+                                    disabled={comments.currentPage === 0 || loadingComments || comments.currentPage >= comments.totalPages}
+                                    className="pagination-button"
+                                >
+                                    {loadingComments ? 'Loading...' : 'Previous'}
+                                </button>
+                                <span className="pagination-info">
+                                    Page {Math.min(comments.currentPage + 1, comments.totalPages)} of {comments.totalPages}
+                                </span>
+                                <button
+                                    onClick={() => {
+                                        const nextPage = Math.min(comments.totalPages - 1, comments.currentPage + 1)
+                                        fetchComments(nextPage, comments.pageSize)
+                                    }}
+                                    disabled={comments.currentPage >= comments.totalPages - 1 || loadingComments || comments.currentPage < 0}
+                                    className="pagination-button"
+                                >
+                                    {loadingComments ? 'Loading...' : 'Next'}
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>
     )
 }
+
 
