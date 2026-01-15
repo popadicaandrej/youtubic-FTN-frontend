@@ -431,6 +431,17 @@
   margin: 12px 0;
 }
 
+.video-detail .video-views {
+  color: #888;
+  font-size: 0.9em;
+  margin: 12px 0;
+}
+
+.video-detail .video-views strong {
+  color: #aaa;
+  margin-right: 6px;
+}
+
 .video-detail .comments-section {
   margin-top: 32px;
   padding-top: 24px;

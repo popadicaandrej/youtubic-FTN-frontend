@@ -139,6 +139,14 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
                         >
                             <span>👍 {p.likesCount || 0}</span>
                             <span>💬 {p.commentsCount || 0}</span>
+                            <span>👁️ {(() => {
+                                try {
+                                    const count = p.viewsCount != null ? Number(p.viewsCount) : 0
+                                    return isNaN(count) || count < 0 ? 0 : count.toLocaleString()
+                                } catch {
+                                    return 0
+                                }
+                            })()}</span>
                         </div>
                     </div>
                 ))}

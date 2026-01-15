@@ -23,12 +23,19 @@ export default function VideoDetail({ videoId, onBack }) {
     const { isAuthenticated } = useAuth()
     const commentsSectionRef = useRef(null)
 
+    const fetchPostRef = useRef(false)
+
     useEffect(() => {
         if (!videoId) {
             setError('Video not selected.')
             setLoading(false)
             return
         }
+
+        if (fetchPostRef.current) {
+            return
+        }
+        fetchPostRef.current = true
 
         async function fetchPost() {
             try {
@@ -61,6 +68,10 @@ export default function VideoDetail({ videoId, onBack }) {
         }
 
         fetchPost()
+
+        return () => {
+            fetchPostRef.current = false
+        }
     }, [videoId])
 
     async function fetchComments(page = 0, size = 20, forceRefresh = false) {
@@ -457,6 +468,17 @@ export default function VideoDetail({ videoId, onBack }) {
                     Posted: {new Date(post.createdAt).toLocaleString()}
                 </div>
             )}
+            
+            <div className="video-views">
+                <strong>👁️ Views:</strong> {(() => {
+                    try {
+                        const count = post.viewsCount != null ? Number(post.viewsCount) : 0
+                        return isNaN(count) || count < 0 ? 0 : count.toLocaleString()
+                    } catch {
+                        return 0
+                    }
+                })()}
+            </div>
 
             <div className="comments-section" ref={commentsSectionRef}>
                 <h3>Comments ({post.commentsCount || 0})</h3>
