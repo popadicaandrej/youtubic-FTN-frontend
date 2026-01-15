@@ -83,9 +83,6 @@ export default function ProfileView({ userId, onBack }) {
             {(user.firstName || user.lastName) && (
                 <p>{user.firstName} {user.lastName}</p>
             )}
-            {user.bio && <p>{user.bio}</p>}
-            {user.email && <p>Email: {user.email}</p>}
-            {user.address && <p>Address: {user.address}</p>}
         </div>
     )
 }

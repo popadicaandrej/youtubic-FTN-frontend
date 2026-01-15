@@ -5,6 +5,8 @@ export default function Feed({ onOpenProfile }) {
     const [posts, setPosts] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
+    const [playingVideo, setPlayingVideo] = useState(null)
+    const [videoAspectRatios, setVideoAspectRatios] = useState({})
 
     useEffect(() => {
         async function fetchPosts() {
@@ -65,38 +67,114 @@ export default function Feed({ onOpenProfile }) {
     }
 
     return (
-        <main className="feed">
-            {posts.map(p => (
-                <div className="post" key={p.id}>
-                    <div className="post-header">
-                        <img src="https://via.placeholder.com/40" alt="Avatar" />
-                        <span
-                            className="username"
-                            onClick={() => onOpenProfile(p.userId)}
-                        >
-                            {p.username}
-                        </span>
-                    </div>
+        <>
+            <main className="feed">
+                {posts.map(p => (
+                    <div className="post" key={p.id}>
+                        <div className="post-header">
+                            <span
+                                className="username"
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    onOpenProfile(p.userId)
+                                }}
+                            >
+                                {p.username}
+                            </span>
+                        </div>
 
-                    <h3>{p.title}</h3>
-                    {p.id && (
-                        <video 
-                            src={`/api/files/videos/${p.id}`}
-                            controls
-                            poster={`/api/files/thumbnails/${p.id}`}
-                            style={{ width: '100%', maxWidth: '600px', height: 'auto', display: 'block', margin: '10px 0' }}
-                        >
-                            Your browser does not support the video tag.
-                        </video>
-                    )}
-                    <p>{p.content}</p>
+                        {p.id && (
+                            <div 
+                                className="video-thumbnail"
+                                style={{ 
+                                    cursor: 'pointer', 
+                                    position: 'relative', 
+                                    marginBottom: '6px',
+                                    width: '100%',
+                                    maxHeight: '400px',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    overflow: 'hidden'
+                                }}
+                                onClick={() => {
+                                    if (playingVideo === p.id) {
+                                        setPlayingVideo(null)
+                                    } else {
+                                        setPlayingVideo(p.id)
+                                    }
+                                }}
+                            >
+                                {playingVideo === p.id ? (
+                                    <video 
+                                        src={`/api/files/videos/${p.id}`}
+                                        controls
+                                        autoPlay
+                                        onLoadedMetadata={(e) => {
+                                            const video = e.target
+                                            const aspectRatio = video.videoWidth / video.videoHeight
+                                            setVideoAspectRatios({ ...videoAspectRatios, [p.id]: aspectRatio })
+                                        }}
+                                        style={{ 
+                                            maxWidth: '100%', 
+                                            maxHeight: '400px',
+                                            width: 'auto',
+                                            height: 'auto',
+                                            display: 'block', 
+                                            borderRadius: '6px'
+                                        }}
+                                    >
+                                        Your browser does not support the video tag.
+                                    </video>
+                                ) : (
+                                    <>
+                                        <img 
+                                            src={`/api/files/thumbnails/${p.id}`}
+                                            alt={p.title}
+                                            style={{ 
+                                                maxWidth: '100%', 
+                                                maxHeight: '400px',
+                                                width: 'auto',
+                                                height: 'auto',
+                                                display: 'block', 
+                                                borderRadius: '6px',
+                                                objectFit: 'contain'
+                                            }}
+                                            onLoad={(e) => {
+                                                const img = e.target
+                                                const aspectRatio = img.naturalWidth / img.naturalHeight
+                                                setVideoAspectRatios({ ...videoAspectRatios, [p.id]: aspectRatio })
+                                            }}
+                                        />
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '50%',
+                                            left: '50%',
+                                            transform: 'translate(-50%, -50%)',
+                                            fontSize: '36px',
+                                            color: 'white',
+                                            textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                                            pointerEvents: 'none'
+                                        }}>▶</div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                        <h3>{p.title}</h3>
+                        <p style={{ display: 'none' }}>{p.content}</p>
 
-                    <div className="actions">
-                        <button onClick={needLogin}>👍 {p.likesCount || 0}</button>
-                        <button onClick={needLogin}>💬 {p.commentsCount || 0}</button>
+                        <div 
+                            className="actions"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ marginTop: 'auto', paddingTop: '6px', display: 'flex', gap: '8px', fontSize: '0.85em' }}
+                        >
+                            <span>👍 {p.likesCount || 0}</span>
+                            <span>💬 {p.commentsCount || 0}</span>
+                        </div>
                     </div>
-                </div>
-            ))}
-        </main>
+                ))}
+            </main>
+
+        </>
     )
 }

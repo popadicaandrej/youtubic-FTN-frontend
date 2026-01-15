@@ -3,6 +3,7 @@ import Feed from './Feed'
 import Login from './Login'
 import Register from './Register'
 import ProfileView from './ProfileView'
+import CreatePost from './CreatePost'
 import { useAuth } from './AuthContext'
 
 export default function App() {
@@ -13,14 +14,20 @@ export default function App() {
     return (
         <>
             <header className="topbar">
-                <h2 className="logo" style={{ cursor: 'pointer' }} onClick={() => setPage('feed')}>Youtubic</h2>
-                <div>
-                    {isAuthenticated() ? (
-                        <button onClick={logout}>Logout</button>
-                    ) : (
+                <div className="topbar-left">
+                    <h2 className="logo" style={{ cursor: 'pointer' }} onClick={() => setPage('feed')}>Youtubic</h2>
+                    {!isAuthenticated() && (
                         <>
                             <button onClick={() => setPage('login')}>Login</button>
                             <button onClick={() => setPage('register')}>Register</button>
+                        </>
+                    )}
+                </div>
+                <div className="topbar-right">
+                    {isAuthenticated() && (
+                        <>
+                            <button onClick={() => setPage('create-post')}>Create Post</button>
+                            <button onClick={logout}>Logout</button>
                         </>
                     )}
                 </div>
@@ -40,6 +47,10 @@ export default function App() {
                     userId={profileId} 
                     onBack={() => setPage('feed')} 
                 />
+            )}
+
+            {page === 'create-post' && isAuthenticated() && (
+                <CreatePost onSuccess={() => setPage('feed')} />
             )}
         </>
     )
