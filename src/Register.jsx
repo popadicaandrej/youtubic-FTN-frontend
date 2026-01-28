@@ -72,7 +72,34 @@ export default function Register({ onSuccess }) {
                 }, 2000)
             } else {
                 const errorData = await res.json().catch(() => ({}))
-                setMsg(errorData.message || 'Registration error.')
+                
+                // Obrađi validacione greške sa backend-a
+                const backendErrors = {}
+                let generalError = null
+                
+                // Proveri da li postoje specifične greške po poljima
+                const fieldNames = ['email', 'username', 'password', 'confirmPassword', 'firstName', 'lastName', 'address']
+                fieldNames.forEach(field => {
+                    if (errorData[field]) {
+                        backendErrors[field] = errorData[field]
+                    }
+                })
+                
+                // Ako postoje specifične greške po poljima, prikaži ih
+                if (Object.keys(backendErrors).length > 0) {
+                    setErrors({ ...errors, ...backendErrors })
+                    // Prikaži generalnu poruku ako postoji
+                    if (errorData.error) {
+                        generalError = errorData.error
+                    } else {
+                        generalError = 'Please fix errors in the form.'
+                    }
+                } else {
+                    // Ako nema specifičnih grešaka, prikaži generalnu grešku
+                    generalError = errorData.error || errorData.message || 'Registration error.'
+                }
+                
+                setMsg(generalError)
             }
         } catch (error) {
             setMsg('Registration error. Please try again.')

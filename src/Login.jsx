@@ -18,10 +18,15 @@ export default function Login({ onSuccess }) {
                 body: JSON.stringify({ email, password })
             })
 
-            if (res.status === 403) {
-                setMsg('Account not activated or too many login attempts.')
+            if (res.status === 429) {
+                const errorData = await res.json().catch(() => ({}))
+                setMsg(errorData.error || 'Too many login attempts. Please try again later.')
+            } else if (res.status === 403) {
+                const errorData = await res.json().catch(() => ({}))
+                setMsg(errorData.error || 'Account not activated. Please check your email for activation link.')
             } else if (!res.ok) {
-                setMsg('Invalid credentials.')
+                const errorData = await res.json().catch(() => ({}))
+                setMsg(errorData.error || 'Invalid credentials.')
             } else {
                 const data = await res.json().catch(() => ({}))
                 const token = data.token || res.headers.get('Authorization')?.replace('Bearer ', '')
@@ -60,7 +65,7 @@ export default function Login({ onSuccess }) {
                 onChange={e => setPassword(e.target.value)} 
             />
 
-            {msg && <p>{msg}</p>}
+            {msg && <p style={{ color: 'red', fontSize: '0.9em' }}>{msg}</p>}
             <button>Login</button>
         </form>
     )

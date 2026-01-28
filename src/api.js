@@ -24,3 +24,11 @@ export async function apiFetch(url, options = {}) {
     }
 }
 
+export async function fetchTrendingVideos(location = null) {
+    let url = '/api/trending'
+    if (location) {
+        url += `?location=${encodeURIComponent(location)}`
+    }
+    return apiFetch(url)
+}
+
