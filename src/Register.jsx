@@ -73,11 +73,9 @@ export default function Register({ onSuccess }) {
             } else {
                 const errorData = await res.json().catch(() => ({}))
                 
-                // Obrađi validacione greške sa backend-a
                 const backendErrors = {}
                 let generalError = null
                 
-                // Proveri da li postoje specifične greške po poljima
                 const fieldNames = ['email', 'username', 'password', 'confirmPassword', 'firstName', 'lastName', 'address']
                 fieldNames.forEach(field => {
                     if (errorData[field]) {
@@ -85,17 +83,14 @@ export default function Register({ onSuccess }) {
                     }
                 })
                 
-                // Ako postoje specifične greške po poljima, prikaži ih
                 if (Object.keys(backendErrors).length > 0) {
                     setErrors({ ...errors, ...backendErrors })
-                    // Prikaži generalnu poruku ako postoji
                     if (errorData.error) {
                         generalError = errorData.error
                     } else {
                         generalError = 'Please fix errors in the form.'
                     }
                 } else {
-                    // Ako nema specifičnih grešaka, prikaži generalnu grešku
                     generalError = errorData.error || errorData.message || 'Registration error.'
                 }
                 
