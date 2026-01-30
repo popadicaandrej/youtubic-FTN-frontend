@@ -6,6 +6,7 @@ import ProfileView from './ProfileView'
 import CreatePost from './CreatePost'
 import VideoDetail from './VideoDetail'
 import TrendingSection from './TrendingSection'
+import MetricsPage from './MetricsPage'
 import { useAuth } from './AuthContext'
 
 export default function App() {
@@ -36,7 +37,7 @@ export default function App() {
                 </div>
             </header>
 
-            {isAuthenticated() && (page === 'feed' || page === 'trending') && (
+            {isAuthenticated() && (page === 'feed' || page === 'trending' || page === 'metrics') && (
                 <nav className="nav-bar">
                     <button
                         type="button"
@@ -51,6 +52,13 @@ export default function App() {
                         onClick={() => setPage('trending')}
                     >
                         Trending
+                    </button>
+                    <button
+                        type="button"
+                        className={`nav-bar-btn ${page === 'metrics' ? 'active' : ''}`}
+                        onClick={() => setPage('metrics')}
+                    >
+                        Performance
                     </button>
                 </nav>
             )}
@@ -76,6 +84,8 @@ export default function App() {
                     }}
                 />
             )}
+
+            {page === 'metrics' && <MetricsPage />}
 
             {page === 'login' && <Login onSuccess={() => setPage('feed')} />}
             {page === 'register' && <Register onSuccess={() => setPage('feed')} />}
