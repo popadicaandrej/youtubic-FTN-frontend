@@ -5,6 +5,7 @@ import Register from './Register'
 import ProfileView from './ProfileView'
 import CreatePost from './CreatePost'
 import VideoDetail from './VideoDetail'
+import TrendingSection from './TrendingSection'
 import { useAuth } from './AuthContext'
 
 export default function App() {
@@ -35,12 +36,40 @@ export default function App() {
                 </div>
             </header>
 
+            {isAuthenticated() && (page === 'feed' || page === 'trending') && (
+                <nav className="nav-bar">
+                    <button
+                        type="button"
+                        className={`nav-bar-btn ${page === 'feed' ? 'active' : ''}`}
+                        onClick={() => setPage('feed')}
+                    >
+                        Feed
+                    </button>
+                    <button
+                        type="button"
+                        className={`nav-bar-btn ${page === 'trending' ? 'active' : ''}`}
+                        onClick={() => setPage('trending')}
+                    >
+                        Trending
+                    </button>
+                </nav>
+            )}
+
             {page === 'feed' && (
                 <Feed 
                     onOpenProfile={(id) => {
                         setProfileId(id)
                         setPage('profile')
                     }}
+                    onOpenVideo={(id) => {
+                        setVideoId(id)
+                        setPage('video-detail')
+                    }}
+                />
+            )}
+
+            {page === 'trending' && (
+                <TrendingSection
                     onOpenVideo={(id) => {
                         setVideoId(id)
                         setPage('video-detail')

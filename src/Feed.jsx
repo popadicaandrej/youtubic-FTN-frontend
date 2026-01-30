@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from './api'
 import { useAuth } from './AuthContext'
-import TrendingSection from './TrendingSection'
 
 export default function Feed({ onOpenProfile, onOpenVideo }) {
     const [posts, setPosts] = useState([])
@@ -69,11 +68,7 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
     }
 
     return (
-        <>
-            {isAuthenticated() && (
-                <TrendingSection onOpenVideo={onOpenVideo} />
-            )}
-            <main className="feed">
+        <main className="feed">
                 {posts.map(p => (
                     <div className="post" key={p.id}>
                         <div className="post-header">
@@ -155,7 +150,5 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
                     </div>
                 ))}
             </main>
-
-        </>
     )
 }
