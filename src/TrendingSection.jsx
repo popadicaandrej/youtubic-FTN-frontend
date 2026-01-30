@@ -47,17 +47,12 @@ export default function TrendingSection({ onOpenVideo }) {
                 setUserLocation({ lat, lon })
                 setLocationError(null)
                 sessionStorage.removeItem(REFUSED_KEY)
-                try {
-                    const str = await reverseGeocode(lat, lon)
+                setLocationLoading(false)
+                reverseGeocode(lat, lon).then(str => {
                     if (str) {
                         setUserLocationString(str)
-                    } else {
-                        setLocationError('Error getting location.')
                     }
-                } catch {
-                    setLocationError('Error getting location.')
-                }
-                setLocationLoading(false)
+                }).catch(() => {})
             },
             (err) => {
                 setUserLocation(null)
@@ -77,11 +72,13 @@ export default function TrendingSection({ onOpenVideo }) {
         )
     }
 
-    async function loadTrendingVideos(location) {
+    async function loadTrendingVideos() {
         try {
             setLoading(true)
             setError(null)
-            const res = await fetchTrendingVideos(location ?? null)
+            const latitude = userLocation?.lat ?? null
+            const longitude = userLocation?.lon ?? null
+            const res = await fetchTrendingVideos(latitude, longitude)
             if (!res.ok) {
                 throw new Error('Error loading trending videos.')
             }
@@ -95,13 +92,8 @@ export default function TrendingSection({ onOpenVideo }) {
     }
 
     useEffect(() => {
-        loadTrendingVideos(null)
-    }, [])
-
-    useEffect(() => {
-        if (!userLocationString) return
-        loadTrendingVideos(userLocationString)
-    }, [userLocationString])
+        loadTrendingVideos()
+    }, [userLocation])
 
     if (loading) {
         return (

@@ -9,10 +9,14 @@ export default function CreatePost({ onSuccess }) {
     const [thumbnail, setThumbnail] = useState(null)
     const [video, setVideo] = useState(null)
     const [location, setLocation] = useState('')
+    const [latitude, setLatitude] = useState('')
+    const [longitude, setLongitude] = useState('')
     const [errors, setErrors] = useState({})
     const [msg, setMsg] = useState(null)
     const [uploadProgress, setUploadProgress] = useState(0)
     const [isUploading, setIsUploading] = useState(false)
+    const [locationLoading, setLocationLoading] = useState(false)
+    const [locationError, setLocationError] = useState(null)
 
     function handleThumbnailChange(e) {
         if (e.target.files && e.target.files[0]) {
@@ -38,6 +42,43 @@ export default function CreatePost({ onSuccess }) {
         const sizes = ['Bytes', 'KB', 'MB', 'GB']
         const i = Math.floor(Math.log(bytes) / Math.log(k))
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+    }
+
+    function getCurrentLocation() {
+        if (!navigator.geolocation) {
+            setLocationError('Geolocation is not supported.')
+            return
+        }
+        setLocationLoading(true)
+        setLocationError(null)
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude
+                const lon = position.coords.longitude
+                setLatitude(lat.toString())
+                setLongitude(lon.toString())
+                setLocationLoading(false)
+                if (errors.latitude) {
+                    setErrors({ ...errors, latitude: null })
+                }
+                if (errors.longitude) {
+                    setErrors({ ...errors, longitude: null })
+                }
+            },
+            (err) => {
+                setLocationLoading(false)
+                if (err.code === 1) {
+                    setLocationError('Location access denied.')
+                } else if (err.code === 2) {
+                    setLocationError('Location unavailable.')
+                } else if (err.code === 3) {
+                    setLocationError('Location request timeout.')
+                } else {
+                    setLocationError('Error getting location.')
+                }
+            },
+            { timeout: 10000, maximumAge: 300000 }
+        )
     }
 
     function validate() {
@@ -78,6 +119,20 @@ export default function CreatePost({ onSuccess }) {
             }
         }
 
+        if (latitude && latitude.trim()) {
+            const lat = parseFloat(latitude)
+            if (isNaN(lat) || lat < -90 || lat > 90) {
+                newErrors.latitude = 'Latitude must be between -90 and 90.'
+            }
+        }
+
+        if (longitude && longitude.trim()) {
+            const lon = parseFloat(longitude)
+            if (isNaN(lon) || lon < -180 || lon > 180) {
+                newErrors.longitude = 'Longitude must be between -180 and 180.'
+            }
+        }
+
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0
     }
@@ -102,6 +157,12 @@ export default function CreatePost({ onSuccess }) {
         formData.append('video', video)
         if (location && location.trim()) {
             formData.append('location', location.trim())
+        }
+        if (latitude && latitude.trim()) {
+            formData.append('latitude', latitude.trim())
+        }
+        if (longitude && longitude.trim()) {
+            formData.append('longitude', longitude.trim())
         }
 
         const xhr = new XMLHttpRequest()
@@ -133,6 +194,8 @@ export default function CreatePost({ onSuccess }) {
                 setThumbnail(null)
                 setVideo(null)
                 setLocation('')
+                setLatitude('')
+                setLongitude('')
                 setUploadProgress(0)
                 if (onSuccess) {
                     setTimeout(() => {
@@ -280,6 +343,48 @@ export default function CreatePost({ onSuccess }) {
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
             />
+
+            <div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <input
+                        type="number"
+                        step="any"
+                        placeholder="Latitude (optional)"
+                        value={latitude}
+                        onChange={(e) => {
+                            setLatitude(e.target.value)
+                            if (errors.latitude) {
+                                setErrors({ ...errors, latitude: null })
+                            }
+                        }}
+                        style={{ flex: 1 }}
+                    />
+                    <input
+                        type="number"
+                        step="any"
+                        placeholder="Longitude (optional)"
+                        value={longitude}
+                        onChange={(e) => {
+                            setLongitude(e.target.value)
+                            if (errors.longitude) {
+                                setErrors({ ...errors, longitude: null })
+                            }
+                        }}
+                        style={{ flex: 1 }}
+                    />
+                    <button
+                        type="button"
+                        onClick={getCurrentLocation}
+                        disabled={locationLoading}
+                        style={{ padding: '8px 12px', cursor: locationLoading ? 'not-allowed' : 'pointer' }}
+                    >
+                        {locationLoading ? 'Getting...' : '📍 Get Location'}
+                    </button>
+                </div>
+                {locationError && <p style={{ color: 'red', fontSize: '0.9em', marginTop: '5px' }}>{locationError}</p>}
+                {errors.latitude && <p style={{ color: 'red', fontSize: '0.9em' }}>{errors.latitude}</p>}
+                {errors.longitude && <p style={{ color: 'red', fontSize: '0.9em' }}>{errors.longitude}</p>}
+            </div>
 
             {msg && <p>{msg}</p>}
             

@@ -24,11 +24,23 @@ export async function apiFetch(url, options = {}) {
     }
 }
 
-export async function fetchTrendingVideos(location = null) {
+export async function fetchTrendingVideos(latitude = null, longitude = null) {
     let url = '/api/trending'
-    if (location) {
-        url += `?location=${encodeURIComponent(location)}`
+    const params = new URLSearchParams()
+    const headers = {}
+    
+    if (latitude != null && longitude != null) {
+        params.append('latitude', latitude.toString())
+        params.append('longitude', longitude.toString())
+        headers['X-User-Latitude'] = latitude.toString()
+        headers['X-User-Longitude'] = longitude.toString()
     }
-    return apiFetch(url)
+    
+    const queryString = params.toString()
+    if (queryString) {
+        url += `?${queryString}`
+    }
+    
+    return apiFetch(url, { headers })
 }
 
