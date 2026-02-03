@@ -34,7 +34,7 @@ export default function TrendingSection({ onOpenVideo }) {
             return
         }
         if (sessionStorage.getItem(REFUSED_KEY)) {
-            setLocationError('Location was declined. Trending is shown by approximate location.')
+            setLocationError('Location was declined.')
             return
         }
         setLocationLoading(true)
@@ -165,9 +165,10 @@ export default function TrendingSection({ onOpenVideo }) {
                     >
                         <div className="trending-thumbnail-container">
                             <img 
-                                src={`/api/files/thumbnails/${video.id}`}
+                                src={`/api/files/thumbnails/${video.id}?v=${video.id}`}
                                 alt={video.title}
                                 className="trending-thumbnail"
+                                key={`trending-thumbnail-${video.id}`}
                             />
                             <div className="trending-play-overlay">▶</div>
                             {video.popularityScore !== null && video.popularityScore !== undefined && (

@@ -6,7 +6,7 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
     const [posts, setPosts] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
-    const { isAuthenticated } = useAuth()
+    const { isAuthenticated, logout } = useAuth()
 
     useEffect(() => {
         async function fetchPosts() {
@@ -17,6 +17,23 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
                 const res = await apiFetch(endpoint)
                 
                 if (!res.ok) {
+                    if (res.status === 403 && isAuthenticated()) {
+                        localStorage.removeItem('token')
+                        logout()
+                        const publicRes = await apiFetch('/api/posts/public')
+                        if (publicRes.ok) {
+                            const data = await publicRes.json()
+                            const sortedPosts = Array.isArray(data) 
+                                ? [...data].sort((a, b) => {
+                                    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+                                    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+                                    return dateB - dateA
+                                })
+                                : []
+                            setPosts(sortedPosts)
+                            return
+                        }
+                    }
                     throw new Error('Error loading posts.')
                 }
                 
@@ -37,7 +54,7 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
         }
 
         fetchPosts()
-    }, [isAuthenticated])
+    }, [isAuthenticated, logout])
 
     function needLogin() {
         alert('You must login to use this option.')
@@ -104,8 +121,9 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
                                 }}
                             >
                                 <img 
-                                    src={`/api/files/thumbnails/${p.id}`}
+                                    src={`/api/files/thumbnails/${p.id}?v=${p.id}`}
                                     alt={p.title}
+                                    key={`thumbnail-${p.id}`}
                                     style={{ 
                                         maxWidth: '100%', 
                                         maxHeight: '400px',
