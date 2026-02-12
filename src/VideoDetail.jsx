@@ -20,10 +20,19 @@ export default function VideoDetail({ videoId, onBack }) {
     const [submittingComment, setSubmittingComment] = useState(false)
     const [likeError, setLikeError] = useState(null)
     const [commentError, setCommentError] = useState(null)
+    const [selectedQualityIndex, setSelectedQualityIndex] = useState(0)
     const { isAuthenticated } = useAuth()
     const commentsSectionRef = useRef(null)
 
     const fetchPostRef = useRef(false)
+
+    // Transcoded variants: backend can return post.transcodedVideos = [{ quality: '720p', url: '...' }, { quality: '480p', url: '...' }]
+    const transcodedVideos = post?.transcodedVideos && Array.isArray(post.transcodedVideos) && post.transcodedVideos.length > 0
+        ? post.transcodedVideos
+        : null
+    const videoSrc = transcodedVideos
+        ? (transcodedVideos[selectedQualityIndex]?.url ?? transcodedVideos[0]?.url)
+        : (post?.id ? `/api/files/videos/${post.id}` : null)
 
     useEffect(() => {
         if (!videoId) {
@@ -72,6 +81,11 @@ export default function VideoDetail({ videoId, onBack }) {
         return () => {
             fetchPostRef.current = false
         }
+    }, [videoId])
+
+    // Reset quality selection when switching to another video
+    useEffect(() => {
+        setSelectedQualityIndex(0)
     }, [videoId])
 
     async function fetchComments(page = 0, size = 20, forceRefresh = false) {
@@ -392,14 +406,31 @@ export default function VideoDetail({ videoId, onBack }) {
                 </button>
             )}
             
-            {post.id && (
+            {post.id && videoSrc && (
                 <div className="video-container">
-                    <video 
-                        src={`/api/files/videos/${post.id}`}
+                    <video
+                        key={videoSrc}
+                        src={videoSrc}
                         controls
                     >
                         Your browser does not support the video tag.
                     </video>
+                    {transcodedVideos && transcodedVideos.length > 1 && (
+                        <div className="video-quality-selector">
+                            <label htmlFor="quality-select">Kvalitet: </label>
+                            <select
+                                id="quality-select"
+                                value={selectedQualityIndex}
+                                onChange={(e) => setSelectedQualityIndex(Number(e.target.value))}
+                            >
+                                {transcodedVideos.map((v, i) => (
+                                    <option key={i} value={i}>
+                                        {v.quality || `${i + 1}`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
             )}
             

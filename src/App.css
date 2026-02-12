@@ -615,6 +615,24 @@
   background: #000;
 }
 
+.video-detail .video-quality-selector {
+  margin-top: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
+}
+
+.video-detail .video-quality-selector select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: #eee;
+  cursor: pointer;
+}
+
 .video-detail h2 {
   margin: 0 0 12px 0;
   font-size: 1.8em;
