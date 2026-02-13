@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from 'react'
 import { apiFetch } from './api'
 import { useAuth } from './AuthContext'
+import { useWatchParty } from './WatchPartyContext'
 
-export default function VideoDetail({ videoId, onBack }) {
+export default function VideoDetail({ videoId, onBack, backLabel = '← Back to feed' }) {
     const [post, setPost] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -22,6 +23,7 @@ export default function VideoDetail({ videoId, onBack }) {
     const [commentError, setCommentError] = useState(null)
     const [selectedQuality, setSelectedQuality] = useState('original')
     const { isAuthenticated } = useAuth()
+    const { roomId, isCreator, sendPlayVideo } = useWatchParty()
     const commentsSectionRef = useRef(null)
     const videoRef = useRef(null)
 
@@ -382,7 +384,7 @@ export default function VideoDetail({ videoId, onBack }) {
             <div className="video-detail">
                 {onBack && (
                     <button onClick={onBack} className="back-button">
-                        ← Back to feed
+                        {backLabel}
                     </button>
                 )}
                 <p>Loading...</p>
@@ -395,7 +397,7 @@ export default function VideoDetail({ videoId, onBack }) {
             <div className="video-detail">
                 {onBack && (
                     <button onClick={onBack} className="back-button">
-                        ← Back to feed
+                        {backLabel}
                     </button>
                 )}
                 <p style={{ color: 'red' }}>{error}</p>
@@ -408,7 +410,7 @@ export default function VideoDetail({ videoId, onBack }) {
             <div className="video-detail">
                 {onBack && (
                     <button onClick={onBack} className="back-button">
-                        ← Back to feed
+                        {backLabel}
                     </button>
                 )}
                 <p>Video not found.</p>
@@ -420,7 +422,7 @@ export default function VideoDetail({ videoId, onBack }) {
         <div className="video-detail">
             {onBack && (
                 <button onClick={onBack} className="back-button">
-                    ← Back to feed
+                    {backLabel}
                 </button>
             )}
             
@@ -430,6 +432,11 @@ export default function VideoDetail({ videoId, onBack }) {
                         ref={videoRef}
                         src={videoSrc}
                         controls
+                        onPlay={() => {
+                            if (roomId && isCreator && post?.id) {
+                                sendPlayVideo(post.id)
+                            }
+                        }}
                     >
                         Your browser does not support the video tag.
                     </video>

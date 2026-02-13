@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Feed from './Feed'
 import Login from './Login'
 import Register from './Register'
@@ -6,13 +6,26 @@ import ProfileView from './ProfileView'
 import CreatePost from './CreatePost'
 import VideoDetail from './VideoDetail'
 import TrendingSection from './TrendingSection'
+import WatchParty from './WatchParty'
+import RoomView from './RoomView'
 import { useAuth } from './AuthContext'
+import { useWatchParty } from './WatchPartyContext'
 
 export default function App() {
     const [page, setPage] = useState('feed')
     const [profileId, setProfileId] = useState(null)
     const [videoId, setVideoId] = useState(null)
+    const [roomId, setRoomId] = useState(null)
     const { isAuthenticated, logout } = useAuth()
+    const { roomId: ctxRoomId, setNavigateToVideo } = useWatchParty()
+
+    useEffect(() => {
+        setNavigateToVideo((id) => {
+            setVideoId(id)
+            setPage('video-detail')
+        })
+        return () => setNavigateToVideo(null)
+    }, [setNavigateToVideo])
 
     return (
         <>
@@ -30,6 +43,7 @@ export default function App() {
                     {isAuthenticated() && (
                         <>
                             <button onClick={() => setPage('create-post')}>Create Post</button>
+                            <button onClick={() => setPage('watch-party')}>Watch Party</button>
                             <button onClick={logout}>Logout</button>
                         </>
                     )}
@@ -90,10 +104,32 @@ export default function App() {
                 <CreatePost onSuccess={() => setPage('feed')} />
             )}
 
+            {page === 'watch-party' && (
+                <WatchParty
+                    onEnterRoom={(id) => {
+                        setRoomId(id)
+                        setPage('room')
+                    }}
+                    onBack={() => setPage('feed')}
+                />
+            )}
+
+            {page === 'room' && roomId && (
+                <RoomView
+                    roomId={roomId}
+                    onLeave={() => {
+                        setRoomId(null)
+                        setPage('feed')
+                    }}
+                    onOpenFeed={() => setPage('feed')}
+                />
+            )}
+
             {page === 'video-detail' && (
-                <VideoDetail 
-                    videoId={videoId} 
-                    onBack={() => setPage('feed')} 
+                <VideoDetail
+                    videoId={videoId}
+                    onBack={ctxRoomId ? () => setPage('room') : () => setPage('feed')}
+                    backLabel={ctxRoomId ? '← Nazad u sobu' : '← Back to feed'}
                 />
             )}
         </>

@@ -24,6 +24,38 @@ export async function apiFetch(url, options = {}) {
     }
 }
 
+// --- Watch Party (rooms) ---
+export async function createRoom(name = '') {
+    const res = await apiFetch('/api/rooms', {
+        method: 'POST',
+        body: JSON.stringify(name ? { name } : {})
+    })
+    return res
+}
+
+export async function getMyRooms() {
+    const res = await apiFetch('/api/rooms/my')
+    return res
+}
+
+export async function joinRoomByCode(code) {
+    const res = await apiFetch('/api/rooms/join', {
+        method: 'POST',
+        body: JSON.stringify({ code: code.trim() })
+    })
+    return res
+}
+
+export async function getRoom(roomId) {
+    const res = await apiFetch(`/api/rooms/${roomId}`)
+    return res
+}
+
+export async function leaveRoom(roomId) {
+    const res = await apiFetch(`/api/rooms/${roomId}/leave`, { method: 'POST' })
+    return res
+}
+
 export async function fetchTrendingVideos(latitude = null, longitude = null) {
     let url = '/api/trending'
     const params = new URLSearchParams()
