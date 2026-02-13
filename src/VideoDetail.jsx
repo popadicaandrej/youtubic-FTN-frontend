@@ -20,19 +20,22 @@ export default function VideoDetail({ videoId, onBack }) {
     const [submittingComment, setSubmittingComment] = useState(false)
     const [likeError, setLikeError] = useState(null)
     const [commentError, setCommentError] = useState(null)
-    const [selectedQualityIndex, setSelectedQualityIndex] = useState(0)
+    const [selectedQuality, setSelectedQuality] = useState('original')
     const { isAuthenticated } = useAuth()
     const commentsSectionRef = useRef(null)
+    const videoRef = useRef(null)
 
     const fetchPostRef = useRef(false)
 
-    // Transcoded variants: backend can return post.transcodedVideos = [{ quality: '720p', url: '...' }, { quality: '480p', url: '...' }]
-    const transcodedVideos = post?.transcodedVideos && Array.isArray(post.transcodedVideos) && post.transcodedVideos.length > 0
-        ? post.transcodedVideos
+    // post.availableQualities = ["original", "720p", "480p"] – samo te opcije prikaži
+    const availableQualities = post?.availableQualities && Array.isArray(post.availableQualities)
+        ? post.availableQualities
+        : []
+    const videoSrc = post?.id
+        ? (selectedQuality === 'original'
+            ? `/api/files/videos/${post.id}`
+            : `/api/files/videos/${post.id}?quality=${selectedQuality}`)
         : null
-    const videoSrc = transcodedVideos
-        ? (transcodedVideos[selectedQualityIndex]?.url ?? transcodedVideos[0]?.url)
-        : (post?.id ? `/api/files/videos/${post.id}` : null)
 
     useEffect(() => {
         if (!videoId) {
@@ -83,10 +86,25 @@ export default function VideoDetail({ videoId, onBack }) {
         }
     }, [videoId])
 
-    // Reset quality selection when switching to another video
+    // Reset quality when switching to another video
     useEffect(() => {
-        setSelectedQualityIndex(0)
+        setSelectedQuality('original')
     }, [videoId])
+
+    // When post loads, ensure selected quality is in availableQualities (e.g. if backend returns only ["720p","480p"])
+    useEffect(() => {
+        if (availableQualities.length > 0 && !availableQualities.includes(selectedQuality)) {
+            setSelectedQuality(availableQualities[0])
+        }
+    }, [post?.id, availableQualities.length])
+
+    // When videoSrc changes (user selected quality), reload video and optionally play
+    useEffect(() => {
+        if (videoRef.current && videoSrc) {
+            videoRef.current.load()
+            videoRef.current.play().catch(() => {})
+        }
+    }, [videoSrc])
 
     async function fetchComments(page = 0, size = 20, forceRefresh = false) {
         if (!post || !post.id) {
@@ -409,26 +427,27 @@ export default function VideoDetail({ videoId, onBack }) {
             {post.id && videoSrc && (
                 <div className="video-container">
                     <video
-                        key={videoSrc}
+                        ref={videoRef}
                         src={videoSrc}
                         controls
                     >
                         Your browser does not support the video tag.
                     </video>
-                    {transcodedVideos && transcodedVideos.length > 1 && (
+                    {availableQualities.length > 1 && (
                         <div className="video-quality-selector">
-                            <label htmlFor="quality-select">Kvalitet: </label>
-                            <select
-                                id="quality-select"
-                                value={selectedQualityIndex}
-                                onChange={(e) => setSelectedQualityIndex(Number(e.target.value))}
-                            >
-                                {transcodedVideos.map((v, i) => (
-                                    <option key={i} value={i}>
-                                        {v.quality || `${i + 1}`}
-                                    </option>
+                            <span className="video-quality-label">Kvalitet:</span>
+                            <div className="video-quality-buttons">
+                                {availableQualities.map((q) => (
+                                    <button
+                                        key={q}
+                                        type="button"
+                                        className={`video-quality-btn ${selectedQuality === q ? 'active' : ''}`}
+                                        onClick={() => setSelectedQuality(q)}
+                                    >
+                                        {q === 'original' ? 'Original' : q}
+                                    </button>
                                 ))}
-                            </select>
+                            </div>
                         </div>
                     )}
                 </div>
