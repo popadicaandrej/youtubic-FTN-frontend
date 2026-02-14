@@ -11,6 +11,8 @@ export default function CreatePost({ onSuccess }) {
     const [location, setLocation] = useState('')
     const [latitude, setLatitude] = useState('')
     const [longitude, setLongitude] = useState('')
+    const [isScheduled, setIsScheduled] = useState(false)
+    const [scheduledAt, setScheduledAt] = useState('')
     const [errors, setErrors] = useState({})
     const [msg, setMsg] = useState(null)
     const [uploadProgress, setUploadProgress] = useState(0)
@@ -133,6 +135,18 @@ export default function CreatePost({ onSuccess }) {
             }
         }
 
+        if (isScheduled) {
+            if (!scheduledAt || scheduledAt.trim().length === 0) {
+                newErrors.scheduledAt = 'Scheduled date and time is required when scheduling is enabled.'
+            } else {
+                const selectedDate = new Date(scheduledAt)
+                const now = new Date()
+                if (selectedDate <= now) {
+                    newErrors.scheduledAt = 'Scheduled date and time must be in the future.'
+                }
+            }
+        }
+
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0
     }
@@ -163,6 +177,11 @@ export default function CreatePost({ onSuccess }) {
         }
         if (longitude && longitude.trim()) {
             formData.append('longitude', longitude.trim())
+        }
+        if (isScheduled && scheduledAt && scheduledAt.trim()) {
+            const selectedDate = new Date(scheduledAt)
+            const isoString = selectedDate.toISOString()
+            formData.append('scheduledAt', isoString)
         }
 
         const xhr = new XMLHttpRequest()
@@ -196,6 +215,8 @@ export default function CreatePost({ onSuccess }) {
                 setLocation('')
                 setLatitude('')
                 setLongitude('')
+                setIsScheduled(false)
+                setScheduledAt('')
                 setUploadProgress(0)
                 if (onSuccess) {
                     setTimeout(() => {
@@ -343,6 +364,42 @@ export default function CreatePost({ onSuccess }) {
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
             />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                    type="checkbox"
+                    id="isScheduled"
+                    checked={isScheduled}
+                    onChange={(e) => {
+                        setIsScheduled(e.target.checked)
+                        if (!e.target.checked) {
+                            setScheduledAt('')
+                            if (errors.scheduledAt) {
+                                setErrors({ ...errors, scheduledAt: null })
+                            }
+                        }
+                    }}
+                />
+                <label htmlFor="isScheduled" style={{ cursor: 'pointer' }}>Zakazano objavljivanje</label>
+            </div>
+
+            {isScheduled && (
+                <div>
+                    <label>Scheduled Date and Time:</label>
+                    <input
+                        type="datetime-local"
+                        value={scheduledAt}
+                        onChange={(e) => {
+                            setScheduledAt(e.target.value)
+                            if (errors.scheduledAt) {
+                                setErrors({ ...errors, scheduledAt: null })
+                            }
+                        }}
+                        style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+                    />
+                    {errors.scheduledAt && <p style={{ color: 'red', fontSize: '0.9em', marginTop: '5px' }}>{errors.scheduledAt}</p>}
+                </div>
+            )}
 
             <div>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

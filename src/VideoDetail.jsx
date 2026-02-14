@@ -22,10 +22,19 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
     const [likeError, setLikeError] = useState(null)
     const [commentError, setCommentError] = useState(null)
     const [selectedQuality, setSelectedQuality] = useState('original')
+    const [playbackInfo, setPlaybackInfo] = useState(null)
+    const [playbackLoading, setPlaybackLoading] = useState(true)
+    const [countdown, setCountdown] = useState(null)
+    const [videoEnded, setVideoEnded] = useState(false)
     const { isAuthenticated } = useAuth()
     const { roomId, isCreator, sendPlayVideo } = useWatchParty()
     const commentsSectionRef = useRef(null)
     const videoRef = useRef(null)
+    const countdownIntervalRef = useRef(null)
+    const resyncIntervalRef = useRef(null)
+    const startOffsetRef = useRef(null)
+    const driftMsRef = useRef(0)
+    const scheduledTimeRef = useRef(null)
 
     const fetchPostRef = useRef(false)
 
@@ -33,11 +42,100 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
     const availableQualities = post?.availableQualities && Array.isArray(post.availableQualities)
         ? post.availableQualities
         : []
-    const videoSrc = post?.id
+    const videoSrc = playbackInfo?.playbackStatus === 'LIVE' && playbackInfo?.streamUrl
         ? (selectedQuality === 'original'
-            ? `/api/files/videos/${post.id}`
-            : `/api/files/videos/${post.id}?quality=${selectedQuality}`)
+            ? playbackInfo.streamUrl
+            : `${playbackInfo.streamUrl}${playbackInfo.streamUrl.includes('?') ? '&' : '?'}quality=${selectedQuality}`)
         : null
+
+    async function fetchPlaybackInfo() {
+        if (!videoId) {
+            return
+        }
+
+        try {
+            setPlaybackLoading(true)
+            const res = await apiFetch(`/api/posts/${videoId}/playback`)
+            
+            if (!res.ok) {
+                if (res.status === 404) {
+                    throw new Error('Video not found.')
+                } else if (res.status >= 500) {
+                    throw new Error('Server error. Please try again later.')
+                } else {
+                    const errorData = await res.json().catch(() => ({}))
+                    throw new Error(errorData.error || 'Error loading playback info.')
+                }
+            }
+            
+            const data = await res.json()
+            setPlaybackInfo(data)
+            startOffsetRef.current = data.startOffsetSeconds || null
+            setVideoEnded(false)
+
+            if (data.serverTime) {
+                const serverTime = new Date(data.serverTime).getTime()
+                const clientTime = Date.now()
+                driftMsRef.current = clientTime - serverTime
+            }
+
+            if (data.playbackStatus === 'NOT_AVAILABLE' && data.scheduledAt && data.serverTime) {
+                const scheduledTime = new Date(data.scheduledAt).getTime()
+                scheduledTimeRef.current = scheduledTime
+
+                function updateCountdown() {
+                    const serverNow = Date.now() - driftMsRef.current
+                    const remaining = Math.max(0, Math.floor((scheduledTimeRef.current - serverNow) / 1000))
+                    setCountdown(remaining)
+
+                    if (remaining <= 0) {
+                        if (countdownIntervalRef.current) {
+                            clearInterval(countdownIntervalRef.current)
+                            countdownIntervalRef.current = null
+                        }
+                        if (resyncIntervalRef.current) {
+                            clearInterval(resyncIntervalRef.current)
+                            resyncIntervalRef.current = null
+                        }
+                        fetchPlaybackInfo()
+                    }
+                }
+
+                const serverTime = new Date(data.serverTime).getTime()
+                const initialCountdown = Math.max(0, Math.floor((scheduledTime - serverTime) / 1000))
+                setCountdown(initialCountdown)
+
+                if (countdownIntervalRef.current) {
+                    clearInterval(countdownIntervalRef.current)
+                }
+
+                countdownIntervalRef.current = setInterval(updateCountdown, 1000)
+
+                if (resyncIntervalRef.current) {
+                    clearInterval(resyncIntervalRef.current)
+                }
+
+                resyncIntervalRef.current = setInterval(() => {
+                    fetchPlaybackInfo()
+                }, 45000)
+            } else {
+                if (countdownIntervalRef.current) {
+                    clearInterval(countdownIntervalRef.current)
+                    countdownIntervalRef.current = null
+                }
+                if (resyncIntervalRef.current) {
+                    clearInterval(resyncIntervalRef.current)
+                    resyncIntervalRef.current = null
+                }
+                scheduledTimeRef.current = null
+                setCountdown(null)
+            }
+        } catch (err) {
+            setError(err.message || 'Error loading playback info.')
+        } finally {
+            setPlaybackLoading(false)
+        }
+    }
 
     useEffect(() => {
         if (!videoId) {
@@ -82,9 +180,22 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
         }
 
         fetchPost()
+        fetchPlaybackInfo()
 
         return () => {
             fetchPostRef.current = false
+            if (countdownIntervalRef.current) {
+                clearInterval(countdownIntervalRef.current)
+                countdownIntervalRef.current = null
+            }
+            if (resyncIntervalRef.current) {
+                clearInterval(resyncIntervalRef.current)
+                resyncIntervalRef.current = null
+            }
+            startOffsetRef.current = null
+            driftMsRef.current = 0
+            scheduledTimeRef.current = null
+            setVideoEnded(false)
         }
     }, [videoId])
 
@@ -100,13 +211,44 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
         }
     }, [post?.id, availableQualities.length])
 
-    // When videoSrc changes (user selected quality), reload video and optionally play
-    useEffect(() => {
-        if (videoRef.current && videoSrc) {
-            videoRef.current.load()
+    function handleVideoLoadedMetadata() {
+        if (videoRef.current && startOffsetRef.current !== null && startOffsetRef.current > 0) {
+            const offset = startOffsetRef.current
+            const duration = videoRef.current.duration
+            
+            if (duration && offset >= duration) {
+                setVideoEnded(true)
+                return
+            }
+            
+            videoRef.current.currentTime = offset
             videoRef.current.play().catch(() => {})
         }
-    }, [videoSrc])
+    }
+
+    function handleVideoSeeking() {
+        if (videoRef.current && startOffsetRef.current !== null && startOffsetRef.current > 0) {
+            const offset = startOffsetRef.current
+            const tolerance = 2
+            const minAllowedTime = offset - tolerance
+            
+            if (videoRef.current.currentTime < minAllowedTime) {
+                videoRef.current.currentTime = Math.max(offset, 0)
+            }
+        }
+    }
+
+    function handleVideoTimeUpdate() {
+        if (videoRef.current && startOffsetRef.current !== null && startOffsetRef.current > 0) {
+            const offset = startOffsetRef.current
+            const tolerance = 2
+            const minAllowedTime = offset - tolerance
+            
+            if (videoRef.current.currentTime < minAllowedTime) {
+                videoRef.current.currentTime = Math.max(offset, 0)
+            }
+        }
+    }
 
     async function fetchComments(page = 0, size = 20, forceRefresh = false) {
         if (!post || !post.id) {
@@ -418,6 +560,28 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
         )
     }
 
+    function formatScheduledDate(dateString) {
+        if (!dateString) return ''
+        const date = new Date(dateString)
+        return new Intl.DateTimeFormat('sr-RS', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date)
+    }
+
+    function formatCountdown(seconds) {
+        const hours = Math.floor(seconds / 3600)
+        const minutes = Math.floor((seconds % 3600) / 60)
+        const secs = seconds % 60
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+        }
+        return `${minutes}:${secs.toString().padStart(2, '0')}`
+    }
+
     return (
         <div className="video-detail">
             {onBack && (
@@ -426,12 +590,76 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
                 </button>
             )}
             
-            {post.id && videoSrc && (
+            {playbackLoading && (
+                <div className="video-container" style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    minHeight: '400px',
+                    background: '#1e1e1e',
+                    borderRadius: '12px'
+                }}>
+                    <p>Loading playback info...</p>
+                </div>
+            )}
+
+            {!playbackLoading && playbackInfo?.playbackStatus === 'NOT_AVAILABLE' && (
+                <div className="video-container" style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    minHeight: '400px',
+                    background: '#1e1e1e',
+                    borderRadius: '12px',
+                    padding: '40px',
+                    textAlign: 'center'
+                }}>
+                    <h3 style={{ marginBottom: '20px', fontSize: '1.5em' }}>Video će biti dostupan u:</h3>
+                    {countdown !== null && (
+                        <div style={{ 
+                            fontSize: '3em', 
+                            fontWeight: 'bold', 
+                            color: '#646cff',
+                            marginBottom: '20px',
+                            fontFamily: 'monospace'
+                        }}>
+                            {formatCountdown(countdown)}
+                        </div>
+                    )}
+                    {playbackInfo.scheduledAt && (
+                        <p style={{ color: '#aaa', fontSize: '1.1em' }}>
+                            {formatScheduledDate(playbackInfo.scheduledAt)}
+                        </p>
+                    )}
+                </div>
+            )}
+
+            {!playbackLoading && playbackInfo?.playbackStatus === 'ENDED' && (
+                <div className="video-container" style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    minHeight: '400px',
+                    background: '#1e1e1e',
+                    borderRadius: '12px',
+                    padding: '40px',
+                    textAlign: 'center'
+                }}>
+                    <h3 style={{ marginBottom: '20px', fontSize: '1.5em' }}>Premijera je završena</h3>
+                </div>
+            )}
+
+            {!playbackLoading && playbackInfo?.playbackStatus === 'LIVE' && post.id && videoSrc && !videoEnded && (
                 <div className="video-container">
                     <video
                         ref={videoRef}
                         src={videoSrc}
                         controls
+                        onLoadedMetadata={handleVideoLoadedMetadata}
+                        onSeeking={handleVideoSeeking}
+                        onTimeUpdate={handleVideoTimeUpdate}
                         onPlay={() => {
                             if (roomId && isCreator && post?.id) {
                                 sendPlayVideo(post.id)
@@ -457,6 +685,22 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {!playbackLoading && playbackInfo?.playbackStatus === 'LIVE' && videoEnded && (
+                <div className="video-container" style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    minHeight: '400px',
+                    background: '#1e1e1e',
+                    borderRadius: '12px',
+                    padding: '40px',
+                    textAlign: 'center'
+                }}>
+                    <h3 style={{ marginBottom: '20px', fontSize: '1.5em' }}>Premijera je završena</h3>
                 </div>
             )}
             
