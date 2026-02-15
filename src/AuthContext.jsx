@@ -1,10 +1,12 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
+import { apiFetch } from './api'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
+    const pingIntervalRef = useRef(null)
 
     useEffect(() => {
         const token = localStorage.getItem('token')
@@ -14,12 +16,46 @@ export function AuthProvider({ children }) {
         setLoading(false)
     }, [])
 
+    useEffect(() => {
+        if (user && localStorage.getItem('token')) {
+            const startPing = () => {
+                const ping = async () => {
+                    try {
+                        await apiFetch('/api/posts')
+                    } catch (error) {
+                    }
+                }
+
+                pingIntervalRef.current = setInterval(ping, 5 * 60 * 1000)
+                ping()
+            }
+
+            startPing()
+
+            return () => {
+                if (pingIntervalRef.current) {
+                    clearInterval(pingIntervalRef.current)
+                    pingIntervalRef.current = null
+                }
+            }
+        } else {
+            if (pingIntervalRef.current) {
+                clearInterval(pingIntervalRef.current)
+                pingIntervalRef.current = null
+            }
+        }
+    }, [user])
+
     const login = (token) => {
         localStorage.setItem('token', token)
         setUser({ token })
     }
 
     const logout = () => {
+        if (pingIntervalRef.current) {
+            clearInterval(pingIntervalRef.current)
+            pingIntervalRef.current = null
+        }
         localStorage.removeItem('token')
         setUser(null)
     }

@@ -8,6 +8,7 @@ import VideoDetail from './VideoDetail'
 import TrendingSection from './TrendingSection'
 import WatchParty from './WatchParty'
 import RoomView from './RoomView'
+import LoadTest from './LoadTest'
 import { useAuth } from './AuthContext'
 import { useWatchParty } from './WatchPartyContext'
 
@@ -27,6 +28,16 @@ export default function App() {
         return () => setNavigateToVideo(null)
     }, [setNavigateToVideo])
 
+    const openGrafana = () => {
+        const url = import.meta.env.VITE_GRAFANA_URL || 'http://localhost:3000'
+        window.open(url, '_blank')
+    }
+
+    const openPrometheus = () => {
+        const url = import.meta.env.VITE_PROMETHEUS_URL || 'http://localhost:9090'
+        window.open(url, '_blank')
+    }
+
     return (
         <>
             <header className="topbar">
@@ -44,6 +55,13 @@ export default function App() {
                         <>
                             <button onClick={() => setPage('create-post')}>Create Post</button>
                             <button onClick={() => setPage('watch-party')}>Watch Party</button>
+                            {import.meta.env.DEV && (
+                                <>
+                                    <button onClick={() => setPage('load-test')}>Load Test</button>
+                                    <button onClick={openGrafana}>Grafana</button>
+                                    <button onClick={openPrometheus}>Prometheus</button>
+                                </>
+                            )}
                             <button onClick={logout}>Logout</button>
                         </>
                     )}
@@ -132,6 +150,8 @@ export default function App() {
                     backLabel={ctxRoomId ? '← Nazad u sobu' : '← Back to feed'}
                 />
             )}
+
+            {page === 'load-test' && import.meta.env.DEV && <LoadTest />}
         </>
     )
 }

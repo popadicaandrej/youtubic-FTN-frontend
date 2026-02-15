@@ -16,11 +16,38 @@ export async function apiFetch(url, options = {}) {
         credentials: 'include'
     }
 
+    const startTimestamp = performance.now()
+    const startTime = Date.now()
+
     try {
         const res = await fetch(url, fetchOptions)
+        const endTimestamp = performance.now()
+        const endTime = Date.now()
+        const durationMs = endTimestamp - startTimestamp
+
+        res.timing = {
+            startTimestamp,
+            endTimestamp,
+            startTime,
+            endTime,
+            durationMs
+        }
+
         return res
     } catch (error) {
-        throw new Error('Error communicating with server.')
+        const endTimestamp = performance.now()
+        const endTime = Date.now()
+        const durationMs = endTimestamp - startTimestamp
+
+        const errorWithTiming = new Error('Error communicating with server.')
+        errorWithTiming.timing = {
+            startTimestamp,
+            endTimestamp,
+            startTime,
+            endTime,
+            durationMs
+        }
+        throw errorWithTiming
     }
 }
 
