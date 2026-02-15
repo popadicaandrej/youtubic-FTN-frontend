@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from './api'
 import { useAuth } from './AuthContext'
+import PopularSection from './PopularSection'
 
 export default function Feed({ onOpenProfile, onOpenVideo }) {
     const [posts, setPosts] = useState([])
@@ -84,30 +85,6 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
         alert('You must login to use this option.')
     }
 
-    if (loading) {
-        return (
-            <main className="feed">
-                <p>Loading posts...</p>
-            </main>
-        )
-    }
-
-    if (error) {
-        return (
-            <main className="feed">
-                <p style={{ color: 'red' }}>{error}</p>
-            </main>
-        )
-    }
-
-    if (posts.length === 0) {
-        return (
-            <main className="feed">
-                <p>No posts to display.</p>
-            </main>
-        )
-    }
-
     function formatScheduledDate(dateString) {
         if (!dateString) return ''
         const date = new Date(dateString)
@@ -121,7 +98,27 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
     }
 
     return (
-        <main className="feed">
+        <>
+            {isAuthenticated() && (
+                <PopularSection onOpenVideo={onOpenVideo} />
+            )}
+            {loading && (
+                <main className="feed">
+                    <p>Loading posts...</p>
+                </main>
+            )}
+            {error && (
+                <main className="feed">
+                    <p style={{ color: 'red' }}>{error}</p>
+                </main>
+            )}
+            {!loading && !error && posts.length === 0 && (
+                <main className="feed">
+                    <p>No posts to display.</p>
+                </main>
+            )}
+            {!loading && !error && posts.length > 0 && (
+            <main className="feed">
                 {posts.map(p => {
                     const isScheduled = p.status === 'SCHEDULED' && p.scheduledAt
                     const scheduledDate = isScheduled ? new Date(p.scheduledAt) : null
@@ -232,5 +229,7 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
                     )
                 })}
             </main>
+            )}
+        </>
     )
 }

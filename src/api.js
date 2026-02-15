@@ -103,3 +103,25 @@ export async function fetchTrendingVideos(latitude = null, longitude = null) {
     return apiFetch(url, { headers })
 }
 
+export async function getLatestPopularVideos() {
+    const res = await apiFetch('/api/popular-videos/latest')
+    
+    if (!res.ok) {
+        const error = new Error(`HTTP ${res.status}`)
+        error.status = res.status
+        error.response = res
+        throw error
+    }
+    
+    const data = await res.json().catch(() => null)
+    
+    if (!data || !data.items) {
+        return { runAt: null, items: [] }
+    }
+    
+    return {
+        runAt: data.runAt || null,
+        items: Array.isArray(data.items) ? data.items : []
+    }
+}
+
