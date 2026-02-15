@@ -17,8 +17,9 @@ export default function App() {
     const [profileId, setProfileId] = useState(null)
     const [videoId, setVideoId] = useState(null)
     const [roomId, setRoomId] = useState(null)
+    const [initialJoinCode, setInitialJoinCode] = useState(null)
     const { isAuthenticated, logout } = useAuth()
-    const { roomId: ctxRoomId, setNavigateToVideo } = useWatchParty()
+    const { roomId: ctxRoomId, isCreator: ctxIsCreator, setNavigateToVideo, sendPlayVideo } = useWatchParty()
 
     useEffect(() => {
         setNavigateToVideo((id) => {
@@ -27,6 +28,23 @@ export default function App() {
         })
         return () => setNavigateToVideo(null)
     }, [setNavigateToVideo])
+
+    useEffect(() => {
+        const pathname = window.location.pathname
+        const params = new URLSearchParams(window.location.search)
+        const codeFromUrl = params.get('code')
+        const roomFromUrl = params.get('room')
+
+        if (pathname === '/watch-party/join' && codeFromUrl) {
+            setInitialJoinCode(codeFromUrl)
+            setPage(isAuthenticated() ? 'watch-party' : 'login')
+            return
+        }
+        if (roomFromUrl && isAuthenticated()) {
+            setRoomId(roomFromUrl)
+            setPage('room')
+        }
+    }, [])
 
     const openGrafana = () => {
         const url = import.meta.env.VITE_GRAFANA_URL || 'http://localhost:3000'
@@ -88,12 +106,13 @@ export default function App() {
             )}
 
             {page === 'feed' && (
-                <Feed 
+                <Feed
                     onOpenProfile={(id) => {
                         setProfileId(id)
                         setPage('profile')
                     }}
                     onOpenVideo={(id) => {
+                        if (ctxRoomId && ctxIsCreator) sendPlayVideo(id)
                         setVideoId(id)
                         setPage('video-detail')
                     }}
@@ -109,7 +128,11 @@ export default function App() {
                 />
             )}
 
-            {page === 'login' && <Login onSuccess={() => setPage('feed')} />}
+            {page === 'login' && (
+                <Login
+                    onSuccess={() => setPage(initialJoinCode ? 'watch-party' : 'feed')}
+                />
+            )}
             {page === 'register' && <Register onSuccess={() => setPage('feed')} />}
             {page === 'profile' && (
                 <ProfileView 
@@ -124,23 +147,37 @@ export default function App() {
 
             {page === 'watch-party' && (
                 <WatchParty
+                    initialJoinCode={initialJoinCode}
                     onEnterRoom={(id) => {
                         setRoomId(id)
+                        setInitialJoinCode(null)
                         setPage('room')
                     }}
-                    onBack={() => setPage('feed')}
+                    onBack={() => {
+                        setInitialJoinCode(null)
+                        setPage('feed')
+                    }}
                 />
             )}
 
-            {page === 'room' && roomId && (
-                <RoomView
-                    roomId={roomId}
-                    onLeave={() => {
-                        setRoomId(null)
-                        setPage('feed')
-                    }}
-                    onOpenFeed={() => setPage('feed')}
-                />
+            {page === 'room' && (
+                roomId ? (
+                    <RoomView
+                        roomId={roomId}
+                        onLeave={() => {
+                            setRoomId(null)
+                            setPage('feed')
+                        }}
+                        onOpenFeed={() => setPage('feed')}
+                    />
+                ) : (
+                    <div className="watch-party" style={{ padding: '1rem' }}>
+                        <p>Soba nije pronađena ili link nije ispravan.</p>
+                        <button type="button" onClick={() => setPage('watch-party')}>
+                            Nazad na Watch Party
+                        </button>
+                    </div>
+                )
             )}
 
             {page === 'video-detail' && (

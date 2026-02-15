@@ -1170,6 +1170,37 @@
   margin: 8px 0;
 }
 
+.room-code-muted {
+  color: #888;
+  font-style: italic;
+}
+
+.room-link {
+  color: #aaa;
+  font-size: 0.9em;
+  margin: 8px 0;
+  word-break: break-all;
+}
+
+.room-link a {
+  color: #6af;
+}
+
+.room-copy-btn {
+  margin-left: 8px;
+  padding: 4px 10px;
+  font-size: 0.85em;
+  cursor: pointer;
+  background: #444;
+  border: 1px solid #666;
+  color: #eee;
+  border-radius: 4px;
+}
+
+.room-copy-btn:hover {
+  background: #555;
+}
+
 .room-role {
   color: #8ab;
   font-size: 0.9em;
@@ -1187,6 +1218,13 @@
   background: #1a3a1a;
   border: 1px solid #2a5a2a;
   color: #8d8;
+}
+
+.room-waiting-msg {
+  color: #888;
+  font-size: 0.9em;
+  margin: 8px 0;
+  font-style: italic;
 }
 
 .room-status-error {

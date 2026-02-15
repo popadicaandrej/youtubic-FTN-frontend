@@ -4,6 +4,10 @@ import { useAuth } from './AuthContext'
 
 const WatchPartyContext = createContext(null)
 
+// WebSocket: konekcija na /ws sa JWT (?token=...) – bez validnog tokena backend ne postavlja userId.
+// Pretplata: tačno /topic/room/{roomId} (isti roomId kao soba).
+// Kada kreator pošalje na /app/room/{roomId}/play-video sa { postId }, backend emituje na /topic/room/{roomId}
+// poruku sa postId; ovde primamo body.postId i pozivamo navigateToVideo(body.postId).
 function getWsUrl(token) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
@@ -60,6 +64,9 @@ export function WatchPartyProvider({ children }) {
                 client.subscribe(`/topic/room/${roomIdToJoin}`, (message) => {
                     try {
                         const body = JSON.parse(message.body)
+                        if (import.meta.env.DEV && body.postId != null) {
+                            console.log('[Watch Party] Poruka sa /topic/room/' + roomIdToJoin + ', postId:', body.postId)
+                        }
                         if (body.postId != null && navigateToVideoRef.current) {
                             navigateToVideoRef.current(body.postId)
                         }
