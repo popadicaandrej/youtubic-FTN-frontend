@@ -97,6 +97,7 @@ export default function WatchParty({ onEnterRoom, onBack, initialJoinCode }) {
         }
         setError(null)
         setLoading(true)
+        console.log('[JOIN] 🔑 Joining with code:', joinCode)
         try {
             const res = await joinRoomByInviteCode(joinCode)
             if (!res.ok) {
@@ -106,9 +107,13 @@ export default function WatchParty({ onEnterRoom, onBack, initialJoinCode }) {
             const data = await res.json()
             const room = data?.content ?? data?.data ?? data
             const roomId = room?.id ?? room?.roomId
+            console.log('[JOIN] 🏠 Room data:', room)
+            console.log('[JOIN] 🆔 Room ID:', roomId)
             if (!roomId) throw new Error('Neispravan odgovor servera – soba nema ID.')
             setRoom(room)
+            console.log('[JOIN] 🔌 About to call connectToRoom with roomId:', roomId)
             await connectToRoom(roomId, false)
+            console.log('[JOIN] ✅ connectToRoom finished')
             onEnterRoom(roomId)
         } catch (err) {
             setError(err.message || 'Greška pri pridruživanju.')

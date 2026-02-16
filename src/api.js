@@ -66,9 +66,13 @@ export async function getMyRooms() {
 }
 
 export async function joinRoomByInviteCode(inviteCode) {
+    const code = (inviteCode != null ? String(inviteCode) : '').trim()
+    if (!code) {
+        throw new Error('inviteCode is required')
+    }
     const res = await apiFetch('/api/watch-party/rooms/join', {
         method: 'POST',
-        body: JSON.stringify({ inviteCode: (inviteCode || '').trim() })
+        body: JSON.stringify({ inviteCode: code })
     })
     return res
 }

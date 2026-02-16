@@ -23,9 +23,11 @@ export default function App() {
 
     useEffect(() => {
         setNavigateToVideo((id) => {
+            console.log('[APP] 🎬 navigateToVideo called with id:', id)
             setVideoId(id)
             setPage('video-detail')
         })
+        console.log('[APP] ✅ setNavigateToVideo has been set')
         return () => setNavigateToVideo(null)
     }, [setNavigateToVideo])
 

@@ -4,14 +4,22 @@ import { useAuth } from './AuthContext'
 
 const WatchPartyContext = createContext(null)
 
-// WebSocket: konekcija na /ws sa JWT (?token=...) – bez validnog tokena backend ne postavlja userId.
-// Pretplata: tačno /topic/room/{roomId} (isti roomId kao soba).
-// Kada kreator pošalje na /app/room/{roomId}/play-video sa { postId }, backend emituje na /topic/room/{roomId}
-// poruku sa postId; ovde primamo body.postId i pozivamo navigateToVideo(body.postId).
+// WebSocket mora ići na BACKEND (npr. ws://localhost:8080/ws), ne na frontend (window.location.host = 5173).
 function getWsUrl(token) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host
-    return `${protocol}//${host}/ws?token=${encodeURIComponent(token || '')}`
+    let wsBase
+    if (import.meta.env.VITE_WS_URL) {
+        wsBase = String(import.meta.env.VITE_WS_URL).replace(/\/$/, '')
+    } else if (import.meta.env.VITE_API_URL) {
+        const api = String(import.meta.env.VITE_API_URL).replace(/\/$/, '')
+        wsBase = api.replace(/^http/, 'ws') + '/ws'
+    } else if (import.meta.env.DEV) {
+        wsBase = 'ws://localhost:8080/ws'
+    } else {
+        wsBase = `${protocol}//${window.location.host}/ws`
+    }
+    const sep = wsBase.includes('?') ? '&' : '?'
+    return `${wsBase}${sep}token=${encodeURIComponent(token || '')}`
 }
 
 export function WatchPartyProvider({ children }) {
@@ -22,6 +30,7 @@ export function WatchPartyProvider({ children }) {
     const [wsConnected, setWsConnected] = useState(false)
     const [wsError, setWsError] = useState(null)
     const clientRef = useRef(null)
+    const subscriptionRef = useRef(null)
     const navigateToVideoRef = useRef(null)
 
     const setNavigateToVideo = useCallback((cb) => {
@@ -29,6 +38,12 @@ export function WatchPartyProvider({ children }) {
     }, [])
 
     const leaveRoom = useCallback(() => {
+        if (subscriptionRef.current) {
+            try {
+                subscriptionRef.current.unsubscribe()
+            } catch (_) {}
+            subscriptionRef.current = null
+        }
         if (clientRef.current) {
             try {
                 clientRef.current.deactivate()
@@ -53,25 +68,44 @@ export function WatchPartyProvider({ children }) {
         setRoomId(roomIdToJoin)
         setIsCreator(creator)
 
+        const wsUrl = getWsUrl(token)
+        console.log('[WS] 🔗 Connecting to:', wsUrl)
+        console.log('[WS] 🏠 Room ID:', roomIdToJoin)
+        console.log('[WS] 👤 Is creator:', creator)
+
         const client = new Client({
-            brokerURL: getWsUrl(token),
+            brokerURL: wsUrl,
             reconnectDelay: 3000,
             heartbeatIncoming: 4000,
             heartbeatOutgoing: 4000,
             onConnect: () => {
+                console.log('[WS] ✅ Connected to WebSocket')
+                console.log('[WS] 📡 Subscribing to /topic/room/' + roomIdToJoin)
                 setWsConnected(true)
                 setWsError(null)
-                client.subscribe(`/topic/room/${roomIdToJoin}`, (message) => {
+                const topic = `/topic/room/${roomIdToJoin}`
+                const sub = client.subscribe(topic, (message) => {
+                    console.log('[WS] 📬 MESSAGE RECEIVED:', message.body)
                     try {
                         const body = JSON.parse(message.body)
-                        if (import.meta.env.DEV && body.postId != null) {
-                            console.log('[Watch Party] Poruka sa /topic/room/' + roomIdToJoin + ', postId:', body.postId)
+                        console.log('[WS] 📦 Parsed body:', body)
+                        if (body.postId != null) {
+                            console.log('[WS] 🎬 PostId detected:', body.postId)
+                            console.log('[WS] 🔗 navigateToVideoRef.current:', navigateToVideoRef.current)
+                            if (navigateToVideoRef.current) {
+                                console.log('[WS] ✅ CALLING navigateToVideo with postId:', body.postId)
+                                navigateToVideoRef.current(body.postId)
+                            } else {
+                                console.error('[WS] ❌ navigateToVideoRef.current is NULL!')
+                            }
+                        } else {
+                            console.warn('[WS] ⚠️ No postId in message')
                         }
-                        if (body.postId != null && navigateToVideoRef.current) {
-                            navigateToVideoRef.current(body.postId)
-                        }
-                    } catch (_) {}
+                    } catch (e) {
+                        console.error('[WS] ❌ Parse error:', e)
+                    }
                 })
+                subscriptionRef.current = sub
             },
             onStompError: (frame) => {
                 setWsError(frame.headers?.message || 'WebSocket error')
@@ -87,9 +121,14 @@ export function WatchPartyProvider({ children }) {
 
     const sendPlayVideo = useCallback((postId) => {
         if (!roomId || !clientRef.current?.connected) return
+        const dest = `/app/room/${roomId}/play-video`
+        const body = { postId: Number(postId) }
+        if (import.meta.env.DEV) {
+            console.log('[Watch Party] Kreator šalje poruku – destination:', dest, ', postId:', body.postId)
+        }
         clientRef.current.publish({
-            destination: `/app/room/${roomId}/play-video`,
-            body: JSON.stringify({ postId: Number(postId) })
+            destination: dest,
+            body: JSON.stringify(body)
         })
     }, [roomId])
 
