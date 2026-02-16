@@ -31,10 +31,16 @@ export function WatchPartyProvider({ children }) {
     const [wsError, setWsError] = useState(null)
     const clientRef = useRef(null)
     const subscriptionRef = useRef(null)
+    const controlSubscriptionRef = useRef(null)
     const navigateToVideoRef = useRef(null)
+    const videoControlCallback = useRef(null)
 
     const setNavigateToVideo = useCallback((cb) => {
         navigateToVideoRef.current = cb
+    }, [])
+
+    const setVideoControlCallback = useCallback((cb) => {
+        videoControlCallback.current = cb
     }, [])
 
     const leaveRoom = useCallback(() => {
@@ -43,6 +49,12 @@ export function WatchPartyProvider({ children }) {
                 subscriptionRef.current.unsubscribe()
             } catch (_) {}
             subscriptionRef.current = null
+        }
+        if (controlSubscriptionRef.current) {
+            try {
+                controlSubscriptionRef.current.unsubscribe()
+            } catch (_) {}
+            controlSubscriptionRef.current = null
         }
         if (clientRef.current) {
             try {
@@ -106,6 +118,25 @@ export function WatchPartyProvider({ children }) {
                     }
                 })
                 subscriptionRef.current = sub
+
+                // Kontrolna subscription - OBAVEZNO
+                console.log('[WS] 📡 Subscribing to /topic/room/' + roomIdToJoin + '/control')
+                const controlSubscription = client.subscribe(`/topic/room/${roomIdToJoin}/control`, (message) => {
+                    console.log('[WS] 🎮 Control message received:', message.body)
+                    try {
+                        const data = JSON.parse(message.body)
+                        console.log('[WS] 🎮 Parsed control:', data)
+                        if (videoControlCallback.current) {
+                            console.log('[WS] 🎮 Calling videoControlCallback')
+                            videoControlCallback.current(data)
+                        } else {
+                            console.warn('[WS] ⚠️ videoControlCallback is null')
+                        }
+                    } catch (e) {
+                        console.error('[WS] ❌ Control parse error:', e)
+                    }
+                })
+                controlSubscriptionRef.current = controlSubscription
             },
             onStompError: (frame) => {
                 setWsError(frame.headers?.message || 'WebSocket error')
@@ -132,6 +163,18 @@ export function WatchPartyProvider({ children }) {
         })
     }, [roomId])
 
+    const sendVideoControl = useCallback((action, data = {}) => {
+        if (!roomId || !clientRef.current?.connected) {
+            console.log('[WS] ❌ Cannot send control - not connected')
+            return
+        }
+        console.log('[WS] 📤 Sending video control:', action, data)
+        clientRef.current.publish({
+            destination: `/app/room/${roomId}/video-control`,
+            body: JSON.stringify({ action, ...data })
+        })
+    }, [roomId])
+
     const value = {
         roomId,
         room,
@@ -142,7 +185,9 @@ export function WatchPartyProvider({ children }) {
         connectToRoom,
         leaveRoom,
         sendPlayVideo,
-        setNavigateToVideo
+        sendVideoControl,
+        setNavigateToVideo,
+        setVideoControlCallback
     }
 
     return (
