@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { apiFetch } from './api'
 import { useAuth } from './AuthContext'
 import { useWatchParty } from './WatchPartyContext'
+import StreamChat from './StreamChat'
 
 export default function VideoDetail({ videoId, onBack, backLabel = '← Back to feed' }) {
     const [post, setPost] = useState(null)
@@ -27,7 +28,7 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
     const [countdown, setCountdown] = useState(null)
     const [videoEnded, setVideoEnded] = useState(false)
     const { isAuthenticated } = useAuth()
-    const { roomId, isCreator, sendPlayVideo, sendVideoControl, setVideoControlCallback } = useWatchParty()
+    const { roomId, room, isCreator, sendPlayVideo, sendVideoControl, setVideoControlCallback } = useWatchParty()
     const commentsSectionRef = useRef(null)
     const videoRef = useRef(null)
     const countdownIntervalRef = useRef(null)
@@ -629,6 +630,8 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
         return `${minutes}:${secs.toString().padStart(2, '0')}`
     }
 
+    const chatMemberCount = typeof room?.memberCount === 'number' ? room.memberCount : (Array.isArray(room?.members) ? room.members.length : 0)
+
     return (
         <div className="video-detail">
             {onBack && (
@@ -751,6 +754,11 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
                         </div>
                     )}
                 </div>
+            )}
+
+            {roomId && playbackInfo?.playbackStatus === 'LIVE' && chatMemberCount >= 2 && <StreamChat />}
+            {roomId && playbackInfo?.playbackStatus === 'LIVE' && chatMemberCount < 2 && (
+                <p className="stream-chat-unavailable">Čet će biti dostupan kada se još neko pridruži.</p>
             )}
 
             {!playbackLoading && playbackInfo?.playbackStatus === 'LIVE' && videoEnded && (

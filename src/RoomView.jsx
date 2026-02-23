@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { leaveRoom as leaveRoomApi, getRoom } from './api'
 import { useWatchParty } from './WatchPartyContext'
+import StreamChat from './StreamChat'
 
 function getInviteCode(room) {
     if (!room) return ''
@@ -11,6 +12,13 @@ function getInviteCode(room) {
         room.shareCode ??
         ''
     )
+}
+
+function getMemberCount(room) {
+    if (!room) return 0
+    if (typeof room.memberCount === 'number') return room.memberCount
+    if (Array.isArray(room.members)) return room.members.length
+    return 0
 }
 
 export default function RoomView({ roomId, onLeave, onOpenFeed }) {
@@ -24,17 +32,21 @@ export default function RoomView({ roomId, onLeave, onOpenFeed }) {
 
     useEffect(() => {
         if (!roomId || !setRoom) return
-        if (getInviteCode(room)) return
-        getRoom(roomId)
-            .then((res) => {
-                if (!res.ok) return
-                return res.json()
-            })
-            .then((data) => {
-                const r = data?.content ?? data?.data ?? data
-                if (r) setRoom(r)
-            })
-            .catch(() => {})
+        function fetchRoom() {
+            getRoom(roomId)
+                .then((res) => {
+                    if (!res.ok) return
+                    return res.json()
+                })
+                .then((data) => {
+                    const r = data?.content ?? data?.data ?? data
+                    if (r) setRoom(prev => ({ ...(prev || {}), ...r }))
+                })
+                .catch(() => {})
+        }
+        fetchRoom()
+        const interval = setInterval(fetchRoom, 10000)
+        return () => clearInterval(interval)
     }, [roomId])
 
     async function handleLeave() {
@@ -124,6 +136,11 @@ export default function RoomView({ roomId, onLeave, onOpenFeed }) {
                     Napusti sobu
                 </button>
             </div>
+
+            {roomId && getMemberCount(room) >= 2 && <StreamChat />}
+            {roomId && getMemberCount(room) < 2 && (
+                <p className="stream-chat-unavailable">Čet će biti dostupan kada se još neko pridruži.</p>
+            )}
         </div>
     )
 }

@@ -29,9 +29,11 @@ export function WatchPartyProvider({ children }) {
     const [isCreator, setIsCreator] = useState(false)
     const [wsConnected, setWsConnected] = useState(false)
     const [wsError, setWsError] = useState(null)
+    const [messages, setMessages] = useState([])
     const clientRef = useRef(null)
     const subscriptionRef = useRef(null)
     const controlSubscriptionRef = useRef(null)
+    const chatSubscriptionRef = useRef(null)
     const navigateToVideoRef = useRef(null)
     const videoControlCallback = useRef(null)
 
@@ -56,6 +58,12 @@ export function WatchPartyProvider({ children }) {
             } catch (_) {}
             controlSubscriptionRef.current = null
         }
+        if (chatSubscriptionRef.current) {
+            try {
+                chatSubscriptionRef.current.unsubscribe()
+            } catch (_) {}
+            chatSubscriptionRef.current = null
+        }
         if (clientRef.current) {
             try {
                 clientRef.current.deactivate()
@@ -67,6 +75,7 @@ export function WatchPartyProvider({ children }) {
         setIsCreator(false)
         setWsConnected(false)
         setWsError(null)
+        setMessages([])
     }, [])
 
     const connectToRoom = useCallback((roomIdToJoin, creator = false) => {
@@ -137,6 +146,14 @@ export function WatchPartyProvider({ children }) {
                     }
                 })
                 controlSubscriptionRef.current = controlSubscription
+
+                const chatSub = client.subscribe(`/topic/room/${roomIdToJoin}/chat`, (message) => {
+                    try {
+                        const parsed = JSON.parse(message.body)
+                        setMessages(prev => [...prev, parsed])
+                    } catch (_) {}
+                })
+                chatSubscriptionRef.current = chatSub
             },
             onStompError: (frame) => {
                 setWsError(frame.headers?.message || 'WebSocket error')
@@ -175,6 +192,14 @@ export function WatchPartyProvider({ children }) {
         })
     }, [roomId])
 
+    const sendChatMessage = useCallback((text) => {
+        if (!roomId || !clientRef.current?.connected) return
+        clientRef.current.publish({
+            destination: `/app/room/${roomId}/chat`,
+            body: JSON.stringify({ text })
+        })
+    }, [roomId])
+
     const value = {
         roomId,
         room,
@@ -182,10 +207,12 @@ export function WatchPartyProvider({ children }) {
         isCreator,
         wsConnected,
         wsError,
+        messages,
         connectToRoom,
         leaveRoom,
         sendPlayVideo,
         sendVideoControl,
+        sendChatMessage,
         setNavigateToVideo,
         setVideoControlCallback
     }
