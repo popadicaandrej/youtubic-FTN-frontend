@@ -9,6 +9,7 @@ import TrendingSection from './TrendingSection'
 import WatchParty from './WatchParty'
 import RoomView from './RoomView'
 import LoadTest from './LoadTest'
+import MetricsPage from './MetricsPage'
 import { useAuth } from './AuthContext'
 import { useWatchParty } from './WatchPartyContext'
 
@@ -78,6 +79,7 @@ export default function App() {
                             {import.meta.env.DEV && (
                                 <>
                                     <button onClick={() => setPage('load-test')}>Load Test</button>
+                                    <button onClick={() => setPage('metrics')}>Metrics</button>
                                     <button onClick={openGrafana}>Grafana</button>
                                     <button onClick={openPrometheus}>Prometheus</button>
                                 </>
@@ -191,6 +193,8 @@ export default function App() {
             )}
 
             {page === 'load-test' && import.meta.env.DEV && <LoadTest />}
+
+            {page === 'metrics' && import.meta.env.DEV && <MetricsPage />}
         </>
     )
 }

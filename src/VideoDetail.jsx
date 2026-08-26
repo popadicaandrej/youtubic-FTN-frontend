@@ -582,6 +582,50 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
         )
     }
 
+    // Za ne-vlasnika, GET /api/posts/{id} namerno odbija zakazan video pre vremena
+    // (post ostaje null, error je postavljen), ali /playback to isto vreme uspešno
+    // vraća NOT_AVAILABLE - prikazujemo countdown iz njega umesto generičke greške.
+    if (!playbackLoading && playbackInfo?.playbackStatus === 'NOT_AVAILABLE') {
+        return (
+            <div className="video-detail">
+                {onBack && (
+                    <button onClick={onBack} className="back-button">
+                        {backLabel}
+                    </button>
+                )}
+                <div className="video-container" style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    minHeight: '400px',
+                    background: '#1e1e1e',
+                    borderRadius: '12px',
+                    padding: '40px',
+                    textAlign: 'center'
+                }}>
+                    <h3 style={{ marginBottom: '20px', fontSize: '1.5em' }}>Video će biti dostupan u:</h3>
+                    {countdown !== null && (
+                        <div style={{
+                            fontSize: '3em',
+                            fontWeight: 'bold',
+                            color: '#646cff',
+                            marginBottom: '20px',
+                            fontFamily: 'monospace'
+                        }}>
+                            {formatCountdown(countdown)}
+                        </div>
+                    )}
+                    {playbackInfo.scheduledAt && (
+                        <p style={{ color: '#aaa', fontSize: '1.1em' }}>
+                            {formatScheduledDate(playbackInfo.scheduledAt)}
+                        </p>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
     if (error) {
         return (
             <div className="video-detail">
@@ -650,38 +694,6 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
                     borderRadius: '12px'
                 }}>
                     <p>Loading playback info...</p>
-                </div>
-            )}
-
-            {!playbackLoading && playbackInfo?.playbackStatus === 'NOT_AVAILABLE' && (
-                <div className="video-container" style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    justifyContent: 'center', 
-                    alignItems: 'center', 
-                    minHeight: '400px',
-                    background: '#1e1e1e',
-                    borderRadius: '12px',
-                    padding: '40px',
-                    textAlign: 'center'
-                }}>
-                    <h3 style={{ marginBottom: '20px', fontSize: '1.5em' }}>Video će biti dostupan u:</h3>
-                    {countdown !== null && (
-                        <div style={{ 
-                            fontSize: '3em', 
-                            fontWeight: 'bold', 
-                            color: '#646cff',
-                            marginBottom: '20px',
-                            fontFamily: 'monospace'
-                        }}>
-                            {formatCountdown(countdown)}
-                        </div>
-                    )}
-                    {playbackInfo.scheduledAt && (
-                        <p style={{ color: '#aaa', fontSize: '1.1em' }}>
-                            {formatScheduledDate(playbackInfo.scheduledAt)}
-                        </p>
-                    )}
                 </div>
             )}
 

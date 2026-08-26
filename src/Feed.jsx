@@ -7,26 +7,26 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
     const [posts, setPosts] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
-    const [isMyVideos, setIsMyVideos] = useState(false)
+    const [viewMode, setViewMode] = useState('public') // 'public' | 'mine'
     const { isAuthenticated, logout } = useAuth()
+    const isMyVideos = viewMode === 'mine'
 
     useEffect(() => {
         async function fetchPosts() {
             try {
                 setLoading(true)
                 setError(null)
-                const endpoint = '/api/posts/public'
+                const endpoint = isMyVideos ? '/api/posts' : '/api/posts/public'
                 const res = await apiFetch(endpoint)
-                
+
                 if (!res.ok) {
                     throw new Error('Error loading posts.')
                 }
-                
+
                 const data = await res.json()
-                setIsMyVideos(false)
-                const filteredPosts = Array.isArray(data) 
+                const filteredPosts = Array.isArray(data)
                     ? data.filter(post => {
-                        if (post.status === 'SCHEDULED' && post.scheduledAt) {
+                        if (!isMyVideos && post.status === 'SCHEDULED' && post.scheduledAt) {
                             const scheduledDate = new Date(post.scheduledAt)
                             const now = new Date()
                             if (scheduledDate > now) {
@@ -50,10 +50,18 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
         }
 
         fetchPosts()
-    }, [isAuthenticated, logout])
+    }, [isAuthenticated, logout, isMyVideos])
 
     function needLogin() {
         alert('You must login to use this option.')
+    }
+
+    function handleMyVideosClick() {
+        if (!isAuthenticated()) {
+            needLogin()
+            return
+        }
+        setViewMode('mine')
     }
 
     function formatScheduledDate(dateString) {
@@ -73,6 +81,28 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
             {isAuthenticated() && (
                 <PopularSection onOpenVideo={onOpenVideo} />
             )}
+            <div className="feed-view-toggle" style={{ display: 'flex', gap: '8px', padding: '0 16px', marginBottom: '12px' }}>
+                <button
+                    type="button"
+                    onClick={() => setViewMode('public')}
+                    style={{
+                        fontWeight: viewMode === 'public' ? 'bold' : 'normal',
+                        textDecoration: viewMode === 'public' ? 'underline' : 'none'
+                    }}
+                >
+                    Public Feed
+                </button>
+                <button
+                    type="button"
+                    onClick={handleMyVideosClick}
+                    style={{
+                        fontWeight: viewMode === 'mine' ? 'bold' : 'normal',
+                        textDecoration: viewMode === 'mine' ? 'underline' : 'none'
+                    }}
+                >
+                    My Videos
+                </button>
+            </div>
             {loading && (
                 <main className="feed">
                     <p>Loading posts...</p>
@@ -170,14 +200,14 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
                         <h3>{p.title}</h3>
                         <p style={{ display: 'none' }}>{p.content}</p>
                         {isMyVideos && isScheduled && isFutureScheduled && (
-                            <p style={{ 
-                                fontSize: '0.85em', 
-                                color: '#aaa', 
+                            <div style={{
+                                fontSize: '0.85em',
+                                color: '#aaa',
                                 marginTop: '4px',
                                 marginBottom: '4px'
                             }}>
                                 Dostupno od: {formatScheduledDate(p.scheduledAt)}
-                            </p>
+                            </div>
                         )}
 
                         <div 
