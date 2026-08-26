@@ -15,47 +15,18 @@ export default function Feed({ onOpenProfile, onOpenVideo }) {
             try {
                 setLoading(true)
                 setError(null)
-                const endpoint = isAuthenticated() ? '/api/posts' : '/api/posts/public'
+                const endpoint = '/api/posts/public'
                 const res = await apiFetch(endpoint)
                 
                 if (!res.ok) {
-                    if (res.status === 403 && isAuthenticated()) {
-                        localStorage.removeItem('token')
-                        logout()
-                        const publicRes = await apiFetch('/api/posts/public')
-                        if (publicRes.ok) {
-                            const data = await publicRes.json()
-                            setIsMyVideos(false)
-                            const filteredPosts = Array.isArray(data) 
-                                ? data.filter(post => {
-                                    if (post.status === 'SCHEDULED' && post.scheduledAt) {
-                                        const scheduledDate = new Date(post.scheduledAt)
-                                        const now = new Date()
-                                        if (scheduledDate > now) {
-                                            return false
-                                        }
-                                    }
-                                    return true
-                                })
-                                : []
-                            const sortedPosts = filteredPosts.sort((a, b) => {
-                                const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-                                const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-                                return dateB - dateA
-                            })
-                            setPosts(sortedPosts)
-                            return
-                        }
-                    }
                     throw new Error('Error loading posts.')
                 }
                 
                 const data = await res.json()
-                const isMyVideosFeed = isAuthenticated() && endpoint === '/api/posts'
-                setIsMyVideos(isMyVideosFeed)
+                setIsMyVideos(false)
                 const filteredPosts = Array.isArray(data) 
                     ? data.filter(post => {
-                        if (!isMyVideosFeed && post.status === 'SCHEDULED' && post.scheduledAt) {
+                        if (post.status === 'SCHEDULED' && post.scheduledAt) {
                             const scheduledDate = new Date(post.scheduledAt)
                             const now = new Date()
                             if (scheduledDate > now) {

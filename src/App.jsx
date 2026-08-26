@@ -29,7 +29,7 @@ export default function App() {
     }, [setNavigateToVideo])
 
     const openGrafana = () => {
-        const url = import.meta.env.VITE_GRAFANA_URL || 'http://localhost:3000'
+        const url = import.meta.env.VITE_GRAFANA_URL || 'http://localhost:3001'
         window.open(url, '_blank')
     }
 
