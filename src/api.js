@@ -53,7 +53,7 @@ export async function apiFetch(url, options = {}) {
 
 // --- Watch Party (rooms) ---
 export async function createRoom(name = '') {
-    const res = await apiFetch('/api/rooms', {
+    const res = await apiFetch('/api/watch-party/rooms', {
         method: 'POST',
         body: JSON.stringify(name ? { name } : {})
     })
@@ -61,25 +61,29 @@ export async function createRoom(name = '') {
 }
 
 export async function getMyRooms() {
-    const res = await apiFetch('/api/rooms/my')
+    const res = await apiFetch('/api/watch-party/rooms?type=my')
     return res
 }
 
-export async function joinRoomByCode(code) {
-    const res = await apiFetch('/api/rooms/join', {
+export async function joinRoomByInviteCode(inviteCode) {
+    const code = (inviteCode != null ? String(inviteCode) : '').trim()
+    if (!code) {
+        throw new Error('inviteCode is required')
+    }
+    const res = await apiFetch('/api/watch-party/rooms/join', {
         method: 'POST',
-        body: JSON.stringify({ code: code.trim() })
+        body: JSON.stringify({ inviteCode: code })
     })
     return res
 }
 
 export async function getRoom(roomId) {
-    const res = await apiFetch(`/api/rooms/${roomId}`)
+    const res = await apiFetch(`/api/watch-party/rooms/${roomId}`)
     return res
 }
 
 export async function leaveRoom(roomId) {
-    const res = await apiFetch(`/api/rooms/${roomId}/leave`, { method: 'POST' })
+    const res = await apiFetch(`/api/watch-party/rooms/${roomId}/leave`, { method: 'POST' })
     return res
 }
 

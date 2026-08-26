@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { apiFetch } from './api'
 import { useAuth } from './AuthContext'
 import { useWatchParty } from './WatchPartyContext'
+import StreamChat from './StreamChat'
 
 export default function VideoDetail({ videoId, onBack, backLabel = '← Back to feed' }) {
     const [post, setPost] = useState(null)
@@ -27,7 +28,7 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
     const [countdown, setCountdown] = useState(null)
     const [videoEnded, setVideoEnded] = useState(false)
     const { isAuthenticated } = useAuth()
-    const { roomId, isCreator, sendPlayVideo } = useWatchParty()
+    const { roomId, room, isCreator, sendPlayVideo, sendVideoControl, setVideoControlCallback } = useWatchParty()
     const commentsSectionRef = useRef(null)
     const videoRef = useRef(null)
     const countdownIntervalRef = useRef(null)
@@ -366,6 +367,53 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
         fetchComments(0, 20)
     }, [post?.id])
 
+    useEffect(() => {
+        // Automatski pokreni video za goste u watch party sobi
+        if (post && videoRef.current && roomId && !isCreator) {
+            const playVideo = async () => {
+                try {
+                    await videoRef.current.play()
+                } catch (error) {
+                    console.log('[VideoDetail] Autoplay blocked:', error)
+                }
+            }
+            const timer = setTimeout(playVideo, 500)
+            return () => clearTimeout(timer)
+        }
+    }, [post, roomId, isCreator])
+
+    useEffect(() => {
+        if (!roomId || isCreator) return
+        console.log('[VideoDetail] 🎮 Setting up video control listener')
+        setVideoControlCallback((data) => {
+            console.log('[VideoDetail] 🎮 Received control:', data)
+            if (!videoRef.current) {
+                console.log('[VideoDetail] ❌ videoRef is null')
+                return
+            }
+            switch (data.action) {
+                case 'play':
+                    console.log('[VideoDetail] ▶️ Playing video')
+                    videoRef.current.play().catch(e => console.log('Play failed:', e))
+                    break
+                case 'pause':
+                    console.log('[VideoDetail] ⏸️ Pausing video')
+                    videoRef.current.pause()
+                    break
+                case 'seek':
+                    if (data.time !== undefined) {
+                        console.log('[VideoDetail] ⏩ Seeking to:', data.time)
+                        videoRef.current.currentTime = data.time
+                    }
+                    break
+            }
+        })
+        return () => {
+            console.log('[VideoDetail] 🎮 Cleaning up video control listener')
+            setVideoControlCallback(null)
+        }
+    }, [roomId, isCreator, setVideoControlCallback])
+
     async function handleLike() {
         if (!isAuthenticated()) {
             setLikeError('You must login to like videos.')
@@ -582,6 +630,8 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
         return `${minutes}:${secs.toString().padStart(2, '0')}`
     }
 
+    const chatMemberCount = typeof room?.memberCount === 'number' ? room.memberCount : (Array.isArray(room?.members) ? room.members.length : 0)
+
     return (
         <div className="video-detail">
             {onBack && (
@@ -658,11 +708,29 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
                         src={videoSrc}
                         controls
                         onLoadedMetadata={handleVideoLoadedMetadata}
-                        onSeeking={handleVideoSeeking}
+                        onSeeking={(e) => {
+                            handleVideoSeeking(e)
+                            console.log('[VideoDetail] ⏩ Video onSeeking event')
+                            if (roomId && isCreator && videoRef.current) {
+                                const time = videoRef.current.currentTime
+                                console.log('[VideoDetail] 📤 Sending seek control to:', time)
+                                sendVideoControl('seek', { time })
+                            }
+                        }}
                         onTimeUpdate={handleVideoTimeUpdate}
                         onPlay={() => {
+                            console.log('[VideoDetail] ▶️ Video onPlay event')
                             if (roomId && isCreator && post?.id) {
+                                console.log('[VideoDetail] 📤 Sending play control')
                                 sendPlayVideo(post.id)
+                                sendVideoControl('play')
+                            }
+                        }}
+                        onPause={() => {
+                            console.log('[VideoDetail] ⏸️ Video onPause event')
+                            if (roomId && isCreator) {
+                                console.log('[VideoDetail] 📤 Sending pause control')
+                                sendVideoControl('pause')
                             }
                         }}
                     >
@@ -686,6 +754,11 @@ export default function VideoDetail({ videoId, onBack, backLabel = '← Back to 
                         </div>
                     )}
                 </div>
+            )}
+
+            {roomId && playbackInfo?.playbackStatus === 'LIVE' && chatMemberCount >= 2 && <StreamChat />}
+            {roomId && playbackInfo?.playbackStatus === 'LIVE' && chatMemberCount < 2 && (
+                <p className="stream-chat-unavailable">Čet će biti dostupan kada se još neko pridruži.</p>
             )}
 
             {!playbackLoading && playbackInfo?.playbackStatus === 'LIVE' && videoEnded && (

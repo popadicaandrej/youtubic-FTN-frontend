@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react'
 import {
     createRoom,
     getMyRooms,
-    joinRoomByCode,
+    joinRoomByInviteCode,
     getRoom,
     leaveRoom
 } from './api'
 import { useWatchParty } from './WatchPartyContext'
 
-export default function WatchParty({ onEnterRoom, onBack }) {
-    const [mode, setMode] = useState('menu') // 'menu' | 'create' | 'join' | 'list'
+export default function WatchParty({ onEnterRoom, onBack, initialJoinCode }) {
+    const [mode, setMode] = useState(initialJoinCode ? 'join' : 'menu') // 'menu' | 'create' | 'join' | 'list'
     const [createName, setCreateName] = useState('')
-    const [joinCode, setJoinCode] = useState('')
+    const [joinCode, setJoinCode] = useState(initialJoinCode || '')
     const [myRooms, setMyRooms] = useState([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
@@ -35,6 +35,36 @@ export default function WatchParty({ onEnterRoom, onBack }) {
         }
     }, [mode])
 
+    useEffect(() => {
+        const code = (initialJoinCode || '').trim()
+        if (!code) return
+        setError(null)
+        setLoading(true)
+        joinRoomByInviteCode(code)
+            .then((res) => {
+                if (!res.ok) {
+                    return res.json().then((err) => {
+                        throw new Error(err.message || 'Ne možete da se pridružite sobi.')
+                    })
+                }
+                return res.json()
+            })
+            .then((data) => {
+                const room = data?.content ?? data?.data ?? data
+                const roomId = room?.id ?? room?.roomId
+                if (!roomId) throw new Error('Neispravan odgovor servera – soba nema ID.')
+                setRoom(room)
+                return connectToRoom(roomId, false).then(() => {
+                    if (typeof window !== 'undefined') {
+                        window.history.replaceState({}, '', window.location.pathname || '/')
+                    }
+                    onEnterRoom(roomId)
+                })
+            })
+            .catch((err) => setError(err.message || 'Greška pri pridruživanju.'))
+            .finally(() => setLoading(false))
+    }, [initialJoinCode])
+
     async function handleCreateRoom(e) {
         e.preventDefault()
         setError(null)
@@ -45,10 +75,13 @@ export default function WatchParty({ onEnterRoom, onBack }) {
                 const err = await res.json().catch(() => ({}))
                 throw new Error(err.message || 'Failed to create room.')
             }
-            const room = await res.json()
+            const data = await res.json()
+            const room = data?.content ?? data?.data ?? data
+            const roomId = room?.id ?? room?.roomId
+            if (!roomId) throw new Error('Neispravan odgovor servera – soba nema ID.')
             setRoom(room)
-            await connectToRoom(room.id, true)
-            onEnterRoom(room.id)
+            await connectToRoom(roomId, true)
+            onEnterRoom(roomId)
         } catch (err) {
             setError(err.message || 'Error creating room.')
         } finally {
@@ -64,16 +97,24 @@ export default function WatchParty({ onEnterRoom, onBack }) {
         }
         setError(null)
         setLoading(true)
+        console.log('[JOIN] 🔑 Joining with code:', joinCode)
         try {
-            const res = await joinRoomByCode(joinCode)
+            const res = await joinRoomByInviteCode(joinCode)
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}))
                 throw new Error(err.message || 'Ne možete da se pridružite sobi.')
             }
-            const room = await res.json()
+            const data = await res.json()
+            const room = data?.content ?? data?.data ?? data
+            const roomId = room?.id ?? room?.roomId
+            console.log('[JOIN] 🏠 Room data:', room)
+            console.log('[JOIN] 🆔 Room ID:', roomId)
+            if (!roomId) throw new Error('Neispravan odgovor servera – soba nema ID.')
             setRoom(room)
-            await connectToRoom(room.id, false)
-            onEnterRoom(room.id)
+            console.log('[JOIN] 🔌 About to call connectToRoom with roomId:', roomId)
+            await connectToRoom(roomId, false)
+            console.log('[JOIN] ✅ connectToRoom finished')
+            onEnterRoom(roomId)
         } catch (err) {
             setError(err.message || 'Greška pri pridruživanju.')
         } finally {
@@ -81,17 +122,18 @@ export default function WatchParty({ onEnterRoom, onBack }) {
         }
     }
 
-    async function handleEnterRoom(roomId) {
+    async function handleEnterRoom(enteredRoomId) {
         setError(null)
         setLoading(true)
         try {
-            const res = await getRoom(roomId)
+            const res = await getRoom(enteredRoomId)
             if (!res.ok) throw new Error('Room not found.')
-            const room = await res.json()
+            const data = await res.json()
+            const room = data?.content ?? data?.data ?? data
             setRoom(room)
-            const isCreator = room.creatorId != null && room.isCreator === true
-            await connectToRoom(roomId, isCreator)
-            onEnterRoom(roomId)
+            const isCreator = room?.creatorId != null && room?.isCreator === true
+            await connectToRoom(enteredRoomId, isCreator)
+            onEnterRoom(enteredRoomId)
         } catch (err) {
             setError(err.message || 'Error entering room.')
         } finally {
@@ -145,7 +187,7 @@ export default function WatchParty({ onEnterRoom, onBack }) {
                 <form className="watch-party-form" onSubmit={handleJoinByCode}>
                     <input
                         type="text"
-                        placeholder="Kod sobe (npr. ABC123)"
+                        placeholder="Invite kod sobe (npr. ABC12XYZ)"
                         value={joinCode}
                         onChange={(e) => {
                             setJoinCode(e.target.value)
